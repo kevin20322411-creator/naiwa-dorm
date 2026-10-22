@@ -78,4 +78,3 @@ node tests/challenges.cjs
 ## 素材说明
 
 原创程序代码沿用仓库的 MIT 许可证。图片和音频来自此前的奶娃项目；短语音来自已完成的贪吃奶娃素材。角色、图片和录音不包含在 MIT 授权内，素材出处见仓库根目录的 THIRD_PARTY_NOTICES.md。
-
