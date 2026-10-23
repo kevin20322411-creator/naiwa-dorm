@@ -3,7 +3,7 @@
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path');
 const G=require('../dist/story.js'),sample=require('./romance.cjs').simulate(Number(process.argv[2]||0),18,G),root=path.resolve(__dirname,'../dist');
 if(!G.valid(sample.confession))throw Error('Invalid preview fixture');
-const E=require('../dist/expressions.js'),fixtures={encounter:sample.encounter,confession:sample.confession,dayEnd:sample.last,breakfast:G.create(0,['brain','toolkit'],'布局检查')};
+const E=require('../dist/expressions.js'),fixtures={contact:sample.contact,encounter:sample.encounter,confession:sample.confession,dayEnd:sample.last,breakfast:G.create(0,['brain','toolkit'],'布局检查')};
 for(let seed=0;seed<8&&(!fixtures.original||!fixtures.originalWave);seed++){
  const full=require('./romance.cjs').simulate(seed,18,G).last;let state=G.create(full.seed,full.traits,full.name,full.recent);
  for(const a of full.actions.slice(state.actions.length)){

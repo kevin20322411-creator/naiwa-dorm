@@ -8,11 +8,11 @@ function boot(storage=new Map()){
  const app=element('app');Object.defineProperty(app,'innerHTML',{get(){return html;},set(value){html=value;for(const key of nodes.keys())if(!staticIds.has(key)&&key!=='brand'&&key!=='intro')nodes.delete(key);lists.clear();}});
  const document={
   querySelector(q){if(q==='.brand')return element('brand');if(q==='.modal-intro')return element('intro');if(q.startsWith('#')){const id=q.slice(1);if(!staticIds.has(id)&&!html.includes('id="'+id+'"'))return null;const fresh=!nodes.has(id),node=element(id);if(fresh&&id==='player-name')node.value=html.match(/id="player-name"[^>]*value="([^"]*)"/)?.[1]||'';return node;}return null;},
-  querySelectorAll(q){if(lists.has(q))return lists.get(q);let match,arr=[];const attr=q==='[data-trait]'?'trait':q==='[data-choice]'?'choice':q==='[data-remove-trait]'?'remove-trait':null;if(!attr)return arr;const re=new RegExp('<button\\b[^>]*data-'+attr+'="([^"]+)"[^>]*>','g');while((match=re.exec(html))){const node={...element(attr+match[1]),dataset:{[attr==='remove-trait'?'removeTrait':attr]:match[1]},disabled:/\sdisabled(?:\s|>)/.test(match[0])};arr.push(node);}lists.set(q,arr);return arr;}
+  querySelectorAll(q){if(lists.has(q))return lists.get(q);let match,arr=[];const attr=q==='[data-trait]'?'trait':q==='[data-choice]'?'choice':q==='[data-remove-trait]'?'remove-trait':q==='[data-activity]'?'activity':null;if(!attr)return arr;const re=new RegExp('<button\\b[^>]*data-'+attr+'="([^"]+)"[^>]*>','g');while((match=re.exec(html))){const node={...element(attr+match[1]),dataset:{[attr==='remove-trait'?'removeTrait':attr]:match[1]},disabled:/\sdisabled(?:\s|>)/.test(match[0])};arr.push(node);}lists.set(q,arr);return arr;}
  };
  const audioCalls=[];
  const ctx={document,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},console,setTimeout:()=>0,clearTimeout(){},Audio:function(src){return{pause(){audioCalls.push({type:'pause',src});},play(){audioCalls.push({type:'play',src});return Promise.resolve();}}},navigator:{clipboard:{writeText:async()=>{}}},scrollTo(){},Date:class extends Date{static now(){return 0;}},Map,Set,JSON,Math,Object,Array,String,Number,RegExp};ctx.window=ctx;vm.createContext(ctx);
- for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','story','expressions','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
+ for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','story','rhythm','expressions','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
  return{document,storage,audioCalls,G:ctx.DormGame,html:()=>html,saved:()=>JSON.parse(storage.get('naiwa-dorm-run-v2')||'null')};
 }
 const lockUI=boot();lockUI.document.querySelector('#new-run').onclick();
@@ -29,7 +29,7 @@ lockUI.document.querySelectorAll('[data-remove-trait]').find(b=>b.dataset.remove
 assert.equal(lockUI.document.querySelectorAll('[data-remove-trait]').length,1);
 lockUI.document.querySelectorAll('[data-trait]')[0].onclick();lockUI.document.querySelector('#enroll').onclick();
 assert.equal(lockUI.saved().name,'锁定奶娃');assert(lockUI.saved().traits.includes(held));assert(!lockUI.saved().traits.includes(locked));
-const ui=boot();assert(ui.html().includes('100 种校园事件'));assert(ui.html().includes('20 种天赋'));
+const ui=boot();assert(ui.html().includes('116 种校园事件'));assert(ui.html().includes('20 种天赋'));
 ui.document.querySelector('#new-run').onclick();
 ui.document.querySelectorAll('[data-trait]')[0].onclick();
 ui.document.querySelectorAll('[data-trait]')[1].onclick();
@@ -37,9 +37,9 @@ ui.document.querySelector('#enroll').onclick();
 const firstMenu=JSON.stringify(ui.G.getScene(ui.saved()).choices);
 const choiceArea=ui.html().slice(ui.html().indexOf('<div class="choices">'));
 assert(!/电量 [+-]\d|学业 [+-]\d|亲密度 [+-]\d|课设 \+\d/.test(choiceArea),'选择前不展示精确后果');assert(choiceArea.includes('¥'),'已知餐价仍可见');
-for(let turn=0;turn<8;turn++){
+for(let turn=0;turn<40&&ui.saved().phase!=='dayEnd';turn++){
  const state=ui.saved(),scene=ui.G.getScene(state);
- const options=scene.choices.map((c,i)=>({c,i,score:Math.min(100,state.stats.energy+(c.mods.energy||0))+Math.min(100,state.stats.study+(c.mods.study||0))})).filter(o=>(o.c.mods.money||0)>=-state.stats.money).sort((a,b)=>b.score-a.score);
+ const options=scene.choices.map((c,i)=>({c,i,score:Math.min(100,state.stats.energy+(c.mods.energy||0))+Math.min(100,state.stats.study+(c.mods.study||0))})).filter(o=>!o.c.disabledReason&&(o.c.mods.money||0)>=-state.stats.money).sort((a,b)=>b.score-a.score);
  ui.document.querySelectorAll('[data-choice]')[options[0].i].onclick();
  ui.document.querySelector('#next-scene').onclick();
  assert(!ui.saved().failed,'稳健选择应至少能完成这个首日样本');
@@ -66,7 +66,7 @@ for(const target of ['energy','study']){
   let s=G.create(seed,['bed','chaos'],'失败检查');
   for(let turn=0;turn<180&&s.phase!=='ending';turn++){
    if(s.phase==='choice'){
-    const scene=G.getScene(s),opts=scene.choices.map((c,i)=>({c,i})).filter(o=>(o.c.mods.money||0)>=-s.stats.money).sort((a,b)=>(a.c.mods[target]||0)-(b.c.mods[target]||0));s=G.choose(s,opts[0].i);
+    const scene=G.getScene(s),opts=scene.choices.map((c,i)=>({c,i})).filter(o=>!o.c.disabledReason&&(o.c.mods.money||0)>=-s.stats.money).sort((a,b)=>(a.c.mods[target]||0)-(b.c.mods[target]||0));s=G.choose(s,opts[0].i);
    }else if(s.phase==='outcome')s=G.next(s);else s=G.continueDay(s);
   }
   if(s.failed==='fail-'+target)found=s;
@@ -105,5 +105,8 @@ rapidUI.document.querySelectorAll('[data-choice]').find(b=>!b.disabled).onclick(
 const rapidDay=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(loveSample.last)]]));rapidDay.document.querySelector('#resume-run').onclick();
 const staleContinue=rapidDay.document.querySelector('#continue-day').onclick,staleRetire=rapidDay.document.querySelector('#retire-run').onclick;staleContinue();rapidSnapshot=rapidDay.storage.get('naiwa-dorm-run-v2');assert.doesNotThrow(staleContinue);assert.doesNotThrow(staleRetire);assert.equal(rapidDay.storage.get('naiwa-dorm-run-v2'),rapidSnapshot);
 for(const bad of ['broken JSON','null','{}','[]'])assert.doesNotThrow(()=>boot(new Map([['naiwa-dorm-run-v2',bad]])));
+const gymUI=boot();gymUI.document.querySelector('#new-run').onclick();gymUI.document.querySelectorAll('[data-trait]')[0].onclick();gymUI.document.querySelectorAll('[data-trait]')[1].onclick();gymUI.document.querySelector('#enroll').onclick();gymUI.document.querySelectorAll('[data-choice]').find(b=>!b.disabled).onclick();
+const gymButton=gymUI.document.querySelectorAll('[data-activity]').find(b=>b.dataset.activity==='gym');assert(gymButton,'事件后有主动健身入口');gymButton.onclick();assert(gymUI.saved().rhythm.pending);assert(gymUI.html().includes('自重练习'));
+const gymReload=boot(gymUI.storage);gymReload.document.querySelector('#resume-run').onclick();const gymHealth=gymReload.saved().stats.health;gymReload.document.querySelectorAll('[data-choice]')[1].onclick();assert(gymReload.saved().stats.health>gymHealth);assert.equal(gymReload.saved().outcome.origin,'self');assert(gymReload.G.valid(gymReload.saved()));assert(!gymReload.html().includes(' / 8'));
 console.log('通过：原有UI流程、快速连点、旧按钮误触、跨天防重复和损坏存档回退。');
 
