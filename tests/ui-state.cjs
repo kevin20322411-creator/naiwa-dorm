@@ -12,7 +12,7 @@ function boot(storage=new Map()){
  };
  const audioCalls=[];
  const ctx={document,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},console,setTimeout:()=>0,clearTimeout(){},Audio:function(src){return{pause(){audioCalls.push({type:'pause',src});},play(){audioCalls.push({type:'play',src});return Promise.resolve();}}},navigator:{clipboard:{writeText:async()=>{}}},scrollTo(){},Date:class extends Date{static now(){return 0;}},Map,Set,JSON,Math,Object,Array,String,Number,RegExp};ctx.window=ctx;vm.createContext(ctx);
- for(const name of ['engine','events','campus','economy','challenges','life','survival','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
+ for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
  return{document,storage,audioCalls,G:ctx.DormGame,html:()=>html,saved:()=>JSON.parse(storage.get('naiwa-dorm-run-v2')||'null')};
 }
 const lockUI=boot();lockUI.document.querySelector('#new-run').onclick();
@@ -29,7 +29,7 @@ lockUI.document.querySelectorAll('[data-remove-trait]').find(b=>b.dataset.remove
 assert.equal(lockUI.document.querySelectorAll('[data-remove-trait]').length,1);
 lockUI.document.querySelectorAll('[data-trait]')[0].onclick();lockUI.document.querySelector('#enroll').onclick();
 assert.equal(lockUI.saved().name,'锁定奶娃');assert(lockUI.saved().traits.includes(held));assert(!lockUI.saved().traits.includes(locked));
-const ui=boot();assert(ui.html().includes('85 种校园事件'));assert(ui.html().includes('20 种天赋'));
+const ui=boot();assert(ui.html().includes('92 种校园事件'));assert(ui.html().includes('20 种天赋'));
 ui.document.querySelector('#new-run').onclick();
 ui.document.querySelectorAll('[data-trait]')[0].onclick();
 ui.document.querySelectorAll('[data-trait]')[1].onclick();
@@ -75,11 +75,18 @@ for(const target of ['energy','study']){
  assert.equal(failureUI.document.querySelector('#continue-day'),null);
 }
 const duplicateBook=boot(new Map([['naiwa-dorm-endings-v1','["ordinary","ordinary"]']]));
-assert.equal(duplicateBook.document.querySelector('#collection-count').textContent,'1/37');
+assert.equal(duplicateBook.document.querySelector('#collection-count').textContent,'1/41');
 const legacyDay8=require('./fixtures/v2-saves.json').find(f=>f.name==='dayEnd').save;
 const awardUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(legacyDay8)]]));
 awardUI.document.querySelector('#resume-run').onclick();
 assert.equal(awardUI.audioCalls.filter(c=>c.type==='play').length,1,'首次重要里程碑只播放一段语音');
 awardUI.document.querySelector('#sound-btn').onclick();
 assert(awardUI.audioCalls.some(c=>c.type==='pause'),'静音立即停止已有声音');
-console.log('通过：跨批保留天赋、叉号取消、姓名保留、跨天恢复、成就弹框、隐藏学位进度、普通选择静音。未验证视觉渲染。');
+const deadlineUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(require('./fixtures/v6-deadline.json'))]]));
+deadlineUI.document.querySelector('#resume-run').onclick();assert(deadlineUI.html().includes('这周的课设，要交了。'));
+assert(deadlineUI.html().includes('本周课设'));assert(deadlineUI.html().includes('通宵补完再交'));
+deadlineUI.document.querySelectorAll('[data-choice]')[0].onclick();assert.equal(deadlineUI.saved().term.passed,1);
+deadlineUI.document.querySelector('#next-scene').onclick();assert.equal(deadlineUI.saved().phase,'dayEnd');
+deadlineUI.document.querySelector('#continue-day').onclick();assert.equal(deadlineUI.saved().day,8);assert.equal(deadlineUI.saved().term.progress,0);
+console.log('通过：跨批天赋、成就弹框、普通选择静音、课设截止提交和跨周重置。');
+
