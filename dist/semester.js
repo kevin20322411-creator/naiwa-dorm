@@ -30,9 +30,25 @@ function crisisPlan(s){const week=Math.ceil(s.day/7),r=B.rng(hash(s.seed+':term-
 function override(s){if(!isNew(s)||s.phase!=='choice')return s;const plan=crisisPlan(s);const id=s.day%7===0&&s.step===7?'term-deadline':s.day===plan.day&&s.step===plan.step?plan.event.id:s.eventId;return id===s.eventId?s:{...s,eventId:id};}
 function createHistorical(seed,traits,name,recent=[]){const s=B.create(seed,traits,name,recent);return override({...s,version:6,term:{progress:0,passed:0,missed:0,clutch:0,cleanStreak:0,bestStreak:0}});}
 function enableCare(s){if(!isNew(s)||s.restCare||s.phase==='ending')return s;return {...s,restCare:true,actions:[...s.actions,'h']};}
-function create(seed,traits,name,recent=[]){return enableCare(createHistorical(seed,traits,name,recent));}
+function enableBalance(s){if(!isNew(s)||s.campusBalance||s.phase==='ending')return s;return{...s,campusBalance:true,actions:[...s.actions,'b']};}
+function create(seed,traits,name,recent=[]){return enableBalance(enableCare(createHistorical(seed,traits,name,recent)));}
 // Explicitly classify real rest, without matching narrative words such as "the wallet rests".
 const restOptions={'base-0':[2],'base-4':[1],'base-5':[1],'cancel-class':[1],'power-cut':[1],'washing-queue':[1],'canteen-coupon':[0],'snoring-roommate':[0],'message-reply':[1],'alarm-committee':[0,1],'energy-rescue':[0],'campus-exhibit-proofread':[2],'campus-fan-listing':[2],'campus-first-sprout':[2],'campus-five-minute-move':[2],'campus-work-extra':[2],'campus-reading-wishlist':[2],'campus-breakfast-thread':[2],'campus-cable-idea':[2],'campus-thanks-message':[1,2],'term-cold':[1],'term-shift':[2]};
+// Each pair is [health, mood], reflecting the action before fatigue is applied.
+const wellbeing={
+ 'base-1':[[0,-1],[0,1],[0,2]],'base-3':[[-3,-2],[0,1],[0,2]],
+ 'base-6':[[1,1],[0,0],[0,-2]],'base-7':[[4,5],[0,4],[-2,3]],
+ 'campus-reading-wishlist':[[0,1],[0,2],[4,5]],
+ 'campus-five-minute-move':[[6,4],[4,6],[4,5]],
+ 'campus-first-sprout':[[0,2],[1,5],[4,5]],
+ 'campus-work-extra':[[-1,-1],[0,2],[4,5]],
+ 'campus-cable-idea':[[0,1],[0,3],[4,5]],
+ 'campus-thanks-message':[[0,3],[4,5],[4,5]],
+ 'campus-breakfast-thread':[[0,3],[0,2],[4,5]],
+ 'campus-fan-listing':[[0,1],[0,0],[4,5]],
+ 'campus-exhibit-proofread':[[0,-1],[0,2],[4,5]],
+ 'energy-rescue':[[6,5],[2,3],[0,2]]
+};
 function projectGain(scene,c){return Number.isFinite(c.project)?c.project:scene.kind==='三餐'?0:Math.ceil(Math.max(0,c.mods.study||0)*.75);}
 function deadline(s){const t=task(s),gap=Math.max(0,t.target-s.term.progress);
  const choices=[
@@ -62,18 +78,26 @@ function getScene(s){
  }else{
   let streak=0;for(let i=s.log.length-1;i>=0&&s.log[i].day===s.day;i--){const entry=s.log[i];if(['meal-breakfast','meal-lunch','meal-dinner'].includes(entry.eventId))continue;if(entry.flags?.rest||(entry.changes.study||0)<=0)break;streak++;}
   for(const [index,c] of scene.choices.entries()){
+   const care=s.campusBalance&&wellbeing[scene.id]?.[index];if(care){c.mods.health=care[0];c.mods.mood=care[1];}
    if(s.restCare&&(restOptions[scene.id]?.includes(index)||c.flags?.sleep||c.flags?.nap)){
     c.activity='rest';c.mods.health=Math.max(4,c.mods.health||0);c.mods.mood=Math.max(5,c.mods.mood||0);c.flags={...c.flags,rest:1};c.project=0;continue;
    }
-   const learning=Math.max(0,c.mods.study||0),light=s.restCare&&(c.mods.energy||0)>0;
+   const learning=Math.max(0,c.mods.study||0),light=s.restCare&&(c.mods.energy||0)>0,effort=c.mods.energy||0;
    c.mods.energy=(c.mods.energy||0)-Math.min(8,4+Math.ceil(s.day/7))-Math.ceil(learning/8)-(learning?streak*2:0);
    c.mods.health=(c.mods.health||0)-(light?0:2+(learning?streak:0));c.mods.mood=(c.mods.mood||0)-(light?0:2+(learning?streak:0));
+   if(s.campusBalance){
+    const tired=effort<0&&s.stats.energy<25,overwork=learning&&streak>=2;
+    const strain=effort<=-16?3:overwork?2:0;
+    c.mods.health+=(light?0:2+(learning?streak:0))-Math.min(5,strain+(tired?2:0));
+    c.mods.mood+=(light?0:2+(learning?streak:0))-(effort<=-18?2:overwork?1:0)-(tired?1:0);
+   }
    if(learning&&s.stats.mood<35)c.mods.study=Math.ceil(learning*.7);
   }
   if(streak)scene.callback=(scene.callback?scene.callback+'\n':'')+'连续学习会更累，换个节奏也能留力气。';
+  if(s.campusBalance&&s.stats.energy<25)scene.callback=(scene.callback?scene.callback+'\n':'')+'电量不足，继续劳累会额外消耗健康与心情。';
   if(s.stats.mood<35)scene.callback=(scene.callback?scene.callback+'\n':'')+'心情低落，学习收益降至七成。';
  }
- for(const c of scene.choices)c.project=projectGain(scene,c);
+ for(const c of scene.choices){c.project=projectGain(scene,c);if(s.campusBalance&&(c.mods.social||0)>0){c.mods.social=Math.max(1,Math.min(s.stats.social>=80?2:8,Math.ceil(c.mods.social*.5)));if(scene.kind!=='三餐'&&c.activity!=='rest')c.mods.mood=(c.mods.mood||0)+1;}}
  return scene;
 }
 function choose(s,index){
@@ -83,7 +107,7 @@ function choose(s,index){
  if(c.disabledReason)throw Error(c.disabledReason);if((c.mods.money||0)<-s.stats.money)throw Error('饭钱不足');
  const mods={...c.mods},flags={...s.flags},term={...s.term};let result=c.result,bonus=s.bonus;
  for(const[k,v]of Object.entries(c.flags||{}))flags[k]=(flags[k]||0)+v;
- if(scene.kind!=='三餐'&&c.activity!=='rest'&&(mods.social||0)>0)mods.mood=(mods.mood||0)+1;
+ if(!s.campusBalance&&scene.kind!=='三餐'&&c.activity!=='rest'&&(mods.social||0)>0)mods.mood=(mods.mood||0)+1;
  if(s.traits.includes('luck')&&s.step===2){mods.money=(mods.money||0)+8;result+='\n🍀 锦鲤天赋触发：饭卡活动返还了8元。';bonus=true;}
  if(c.roll){const chance=Math.min(.95,c.roll.rate+(s.traits.includes('luck')?.15:0));const won=B.rng(hash(s.seed+':roll:'+s.day+':'+scene.id+':'+index))()<chance;const branch=won?c.roll.win:c.roll.lose;for(const[k,v]of Object.entries(branch.mods||{}))mods[k]=(mods[k]||0)+v;result+='\n'+branch.text;}
  const gain=projectGain(scene,c);term.progress+=gain;
@@ -110,10 +134,10 @@ function restore(raw){
  try{
   if(!Number.isInteger(raw.seed)||!Array.isArray(raw.actions)||raw.actions.length>10000)return null;
   let s=createHistorical(raw.seed,raw.traits,raw.name,raw.recent);
-  for(const a of raw.actions){if(/^c[0-4]$/.test(a))s=choose(s,+a[1]);else if(a==='n')s=next(s);else if(a==='d')s=continueDay(s);else if(a==='r')s=B.retire(s);else if(a==='e')s=B.enableEconomy(s);else if(a==='l')s=B.enableLife(s);else if(a==='h')s=enableCare(s);else return null;}
+  for(const a of raw.actions){if(/^c[0-4]$/.test(a))s=choose(s,+a[1]);else if(a==='n')s=next(s);else if(a==='d')s=continueDay(s);else if(a==='r')s=B.retire(s);else if(a==='e')s=B.enableEconomy(s);else if(a==='l')s=B.enableLife(s);else if(a==='h')s=enableCare(s);else if(a==='b')s=enableBalance(s);else return null;}
   return JSON.stringify(s)===JSON.stringify(raw)?s:null;
  }catch{return null;}
 }
-const api={...B,create,getScene,choose,next,continueDay,ending,achievements,restore,enableCare,valid:s=>restore(s)!==null,task,events:[...B.events,...crises,{id:'term-deadline',kind:'课设截止'}],eventCount:B.eventCount+crises.length+1,endings:[...B.endings,...addedEndings]};
+const api={...B,create,createHistorical,getScene,choose,next,continueDay,ending,achievements,restore,enableCare,enableBalance,valid:s=>restore(s)!==null,task,events:[...B.events,...crises,{id:'term-deadline',kind:'课设截止'}],eventCount:B.eventCount+crises.length+1,endings:[...B.endings,...addedEndings]};
 root.DormGame=api;if(!browser)module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
