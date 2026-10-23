@@ -59,7 +59,7 @@ function gameView(){
  clearCard();
  view='game';
  if(!state){home();return;}
- const upgraded=G.enableLife(state);if(upgraded!==state){state=upgraded;persist();}
+ const upgraded=G.enableCare(G.enableLife(state));if(upgraded!==state){state=upgraded;persist();}
  if(state.phase==='ending'||state.phase==='dayEnd'){endingView();return;}
  const scene=G.getScene(state);
  if(!seenEvents.includes(scene.id)){seenEvents.push(scene.id);write('naiwa-dorm-events-v2',seenEvents);}
