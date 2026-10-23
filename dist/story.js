@@ -64,7 +64,7 @@ function ending(s){
  if(base.id==='love-ending'||['freshman','week','degree','honor'].includes(base.id))return decorate(s,base);
  if(base.id!=='ordinary'&&qualifies(s,base))return base;
  const extra=extraAwards(s);if(extra.length)return extra.find(e=>e.id==='recovery')||extra[0];
- return B.achievements(s).find(e=>e.id!=='ordinary'&&qualifies(s,e))||B.endings.find(e=>e.id==='ordinary');
+ return B.achievements(s).find(e=>Object.hasOwn(requirements,e.id)&&qualifies(s,e))||B.endings.find(e=>e.id==='ordinary');
 }
 function achievements(s){
  const base=B.achievements(s);if(!s.storyMode)return base;

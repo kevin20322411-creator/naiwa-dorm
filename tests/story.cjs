@@ -28,4 +28,8 @@ const love={...plain,romance:{...plain.romance,earned:true,earnedDay:2}};
 const variations=[{health:35,money:25,study:65,mood:50},{health:80,money:5,study:65,mood:60},{health:80,money:25,study:90,mood:65},{health:80,money:25,study:65,mood:90}].map(v=>G.ending({...love,stats:{...love.stats,...v}}).quote);
 assert.equal(new Set(variations).size,4);
 const before=JSON.stringify(base);G.ending(base);G.achievements(base);assert.equal(JSON.stringify(base),before,'结局不能修改玩家属性');
+const history=simulate(0,18,G).last;
+const weakAthlete={...history,stats:{energy:60,money:25,social:30,study:60,health:40,mood:60},flags:{...history.flags,sport:4},log:history.log.map((e,i)=>i===history.log.length-1?{...e,flags:{...e.flags,sport:1}}:e)};
+assert.equal(G.ending(weakAthlete).id,'ordinary','旧里程碑不能顶替不符合状态的今日称号');
+assert(G.achievements(weakAthlete).some(e=>e.id==='week'),'历史里程碑仍然保留');
 console.log(JSON.stringify({passed:true,contactTrials:256,accepted,distinctReplies:reasons.size,storyRuns:24,loveEndingReachable:runs.filter(x=>x.awarded).length,statBasedEndings:true,legacyCompatible:true}));

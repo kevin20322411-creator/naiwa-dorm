@@ -97,5 +97,13 @@ const confessUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(loveSample.con
 assert.equal(confessUI.audioCalls.filter(c=>c.type==='play').length,1);assert(JSON.parse(confessUI.storage.get('naiwa-dorm-endings-v1')).includes('love-ending'));
 const loveReload=boot(confessUI.storage);loveReload.document.querySelector('#resume-run').onclick();assert(loveReload.html().includes('恋人'));assert(!loveReload.document.querySelector('#unlock-modal').open);
 const storyContact=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(require('./fixtures/v6-romance.json'))]]));storyContact.document.querySelector('#resume-run').onclick();assert(storyContact.saved().storyMode);assert(storyContact.G.valid(storyContact.saved()));assert(storyContact.html().includes('class="changes"'),'选择后保留真实变化');
-console.log('通过：天赋跨批、成就弹框、选择静音、课设提交、亲密度显示、告白弹窗及刷新保留。');
+const rapidUI=boot();rapidUI.document.querySelector('#new-run').onclick();rapidUI.document.querySelectorAll('[data-trait]')[0].onclick();rapidUI.document.querySelectorAll('[data-trait]')[1].onclick();rapidUI.document.querySelector('#enroll').onclick();
+const staleChoice=rapidUI.document.querySelectorAll('[data-choice]').find(b=>!b.disabled).onclick;
+staleChoice();let rapidSnapshot=rapidUI.storage.get('naiwa-dorm-run-v2');assert.doesNotThrow(staleChoice);assert.equal(rapidUI.storage.get('naiwa-dorm-run-v2'),rapidSnapshot);
+const staleNext=rapidUI.document.querySelector('#next-scene').onclick;staleNext();rapidSnapshot=rapidUI.storage.get('naiwa-dorm-run-v2');assert.doesNotThrow(staleNext);assert.doesNotThrow(staleChoice);assert.equal(rapidUI.storage.get('naiwa-dorm-run-v2'),rapidSnapshot,'旧事件按钮不能操作新事件');
+rapidUI.document.querySelectorAll('[data-choice]').find(b=>!b.disabled).onclick();rapidSnapshot=rapidUI.storage.get('naiwa-dorm-run-v2');staleNext();assert.equal(rapidUI.storage.get('naiwa-dorm-run-v2'),rapidSnapshot,'上一场的继续按钮不能跳过这一场');
+const rapidDay=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(loveSample.last)]]));rapidDay.document.querySelector('#resume-run').onclick();
+const staleContinue=rapidDay.document.querySelector('#continue-day').onclick,staleRetire=rapidDay.document.querySelector('#retire-run').onclick;staleContinue();rapidSnapshot=rapidDay.storage.get('naiwa-dorm-run-v2');assert.doesNotThrow(staleContinue);assert.doesNotThrow(staleRetire);assert.equal(rapidDay.storage.get('naiwa-dorm-run-v2'),rapidSnapshot);
+for(const bad of ['broken JSON','null','{}','[]'])assert.doesNotThrow(()=>boot(new Map([['naiwa-dorm-run-v2',bad]])));
+console.log('通过：原有UI流程、快速连点、旧按钮误触、跨天防重复和损坏存档回退。');
 

@@ -79,21 +79,21 @@ function gameView(){
  if(!state){home();return;}
  const upgraded=G.enableStory(G.enableRomance(G.enableBalance(G.enableCare(G.enableLife(state)))));if(upgraded!==state){state=upgraded;persist();}
  if(state.phase==='ending'||state.phase==='dayEnd'){endingView();return;}
- const scene=G.getScene(state),expression=E.scene(state,scene);
+ const renderedState=state,scene=G.getScene(state),expression=E.scene(state,scene);
  if(!seenEvents.includes(scene.id)){seenEvents.push(scene.id);write('naiwa-dorm-events-v2',seenEvents);}
  recent=recent.filter(id=>id!==scene.id).concat(scene.id).slice(-24);write('naiwa-dorm-recent-v2',recent);
  const callback=scene.callback?.replace('前情后续 · 这件事和你此前的经历或当前状态有关。','').trim();
  app.innerHTML=`<div class="game-layout"><aside class="status-panel"><div class="player-title"><img class="player-avatar" src="${asset('frog.png')}" alt=""><b>${esc(state.name)}</b></div><div class="stats">${statHTML(state.stats)}</div><p class="status-rule">电量、学业或健康归零，本局结束。</p><div class="trait-chips">${state.traits.map(id=>`<span>${esc(G.traits.find(t=>t.id===id).name)}</span>`).join('')}</div><button class="quit-btn" id="pause-run">返回首页</button></aside><section class="game-main"><div class="mobile-stats" style="--stat-count:${G.statKeys(state.stats).length}">${statHTML(state.stats)}</div>${openingBuffHTML()}${taskHTML()}${romanceHTML()}<div class="scene-header"><span class="scene-time">${scene.time} · ${esc(scene.place)}</span><span class="scene-step">第 ${state.day} 天 · ${state.step+1} / 8</span></div><div class="scene-art expression-art ${scene.kind==='三餐'?'meal-art':scene.romanceScene?'romance-art':''}"><span class="scene-doodle" aria-hidden="true">${scene.emoji}</span><div class="scene-bubble">${esc(state.phase==='outcome'?expression.caption:scene.bubble)}</div><img class="${expression.original?'original-expression':'expression-sticker'}" src="${asset(expression.file)}" alt="${esc(expression.alt)}">${scene.romanceScene?`<img class="naiwa-pink" src="${asset('frog-wave.png')}" alt="奶粉">`:""}</div><div class="story"><h1 tabindex="-1" id="scene-title">${esc(narrative(scene.title))}</h1>${state.phase==='choice'?`${callback?`<div class="callback">${esc(callback)}</div>`:''}<p>${esc(narrative(scene.text))}</p><div class="choices">${scene.choices.map((c,i)=>`<button class="choice" data-choice="${i}" ${c.disabledReason||(c.mods.money||0)<-state.stats.money?'disabled':''}><span class="choice-code">${'ABCDE'[i]}</span><span class="choice-content"><strong>${esc(choiceText(c))}</strong>${choiceNotice(c)?`<span class="choice-costs">${choiceNotice(c)}</span>`:""}</span><span class="choice-arrow" aria-hidden="true">›</span></button>`).join('')}</div><p class="mobile-rule">电量、学业或健康归零，本局结束。</p>`:`<div class="outcome" role="status"><span class="outcome-label">选择 ${'ABCDE'[state.outcome.index]}</span><p>${esc(narrative(state.outcome.result)).replace(/\n/g,'<br>')}</p><div class="changes">${state.outcome.intimacyChange?'<span class="affection-change">亲密度 '+(state.outcome.intimacyChange>0?'+':'')+state.outcome.intimacyChange+'</span>':''}${state.outcome.project?'<span>课设 +'+state.outcome.project+'</span>':''}${G.keys.filter(k=>state.outcome.changes[k]).map(k=>`<span class="${state.outcome.changes[k]<0?'negative':''}">${G.labels[k]} ${state.outcome.changes[k]>0?'+':''}${state.outcome.changes[k]}</span>`).join('')}</div>${state.failed?'<div class="failure-notice">'+(state.failed==='fail-energy'?'电量归零，本局结束。':state.failed==='fail-health'?'健康归零，奶娃需要休养。':state.failed==='fail-course'?'两次缺交课设，本学期转入重修。':'学业归零，触发劝退。')+'</div>':''}<button class="button dark" id="next-scene">${state.failed?'查看结局':state.step===7?'今日结算':scene.kind==='三餐'&&!state.outcome.flags.missedMeal?'吃好了':'继续'}</button></div>`}</div></section></div>`;
  document.querySelector('#pause-run').onclick=()=>{home();goTop();};
- document.querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{try{state=G.choose(state,Number(b.dataset.choice));persist();if(state.failed)speak('failure');gameView();collectRomanceAwards();}catch{toast('这个选择暂时不可用。');}});
+ document.querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{if(view!=='game'||state!==renderedState||state.phase!=='choice'||b.disabled)return;try{state=G.choose(state,Number(b.dataset.choice));persist();if(state.failed)speak('failure');gameView();collectRomanceAwards();}catch{toast('这个选择暂时不可用。');}});
  const next=document.querySelector('#next-scene');
- if(next)next.onclick=()=>{state=G.next(state);persist();gameView();goTop();document.querySelector('#scene-title')?.focus({preventScroll:true});};
+ if(next)next.onclick=()=>{if(view!=='game'||state!==renderedState||state.phase!=='outcome')return;state=G.next(state);persist();gameView();goTop();document.querySelector('#scene-title')?.focus({preventScroll:true});};
 }
 
 function endingView(){
  clearCard();
  view='ending';
- const e=G.ending(state),daily=state.phase==='dayEnd',failed=!!e.failure,rest=daily?G.restPreview(state):null;
+ const renderedState=state,e=G.ending(state),daily=state.phase==='dayEnd',failed=!!e.failure,rest=daily?G.restPreview(state):null;
  const unlocked=G.achievements(state).filter(item=>!seen.includes(item.id));
  if(unlocked.length){seen.push(...unlocked.map(item=>item.id));write(bookKey,seen);updateBook();if(!failed&&unlocked.some(item=>(['freshman','week','degree','honor'].includes(item.id)||item.hidden||item.difficulty==='hard')))speak('award');}
  const today=state.log.filter(x=>x.day===state.day);
@@ -104,7 +104,7 @@ function endingView(){
  document.querySelector('#restart').onclick=()=>{selected=[];draftSeed=Date.now()>>>0;offered=G.newDraft(draftSeed);draftName=state.name;traitsView();goTop();};
  document.querySelector('#copy-result').onclick=()=>copyResult(e);
  document.querySelector('#save-card').onclick=()=>saveCard(e);
- if(daily){document.querySelector('#continue-day').onclick=()=>{state=G.continueDay(G.enableEconomy(state));persist();if(state.failed)speak('failure');gameView();goTop();};document.querySelector('#retire-run').onclick=()=>{state=G.retire(state);persist();endingView();goTop();};}
+ if(daily){document.querySelector('#continue-day').onclick=()=>{if(view!=='ending'||state!==renderedState||state.phase!=='dayEnd')return;state=G.continueDay(G.enableEconomy(state));persist();if(state.failed)speak('failure');gameView();goTop();};document.querySelector('#retire-run').onclick=()=>{if(view!=='ending'||state!==renderedState||state.phase!=='dayEnd')return;state=G.retire(state);persist();endingView();goTop();};}
  if(unlocked.length)showUnlocks(unlocked);
 }
 
