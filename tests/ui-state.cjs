@@ -12,7 +12,7 @@ function boot(storage=new Map()){
  };
  const audioCalls=[];
  const ctx={document,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},console,setTimeout:()=>0,clearTimeout(){},Audio:function(src){return{pause(){audioCalls.push({type:'pause',src});},play(){audioCalls.push({type:'play',src});return Promise.resolve();}}},navigator:{clipboard:{writeText:async()=>{}}},scrollTo(){},Date:class extends Date{static now(){return 0;}},Map,Set,JSON,Math,Object,Array,String,Number,RegExp};ctx.window=ctx;vm.createContext(ctx);
- for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
+ for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','story','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
  return{document,storage,audioCalls,G:ctx.DormGame,html:()=>html,saved:()=>JSON.parse(storage.get('naiwa-dorm-run-v2')||'null')};
 }
 const lockUI=boot();lockUI.document.querySelector('#new-run').onclick();
@@ -35,6 +35,8 @@ ui.document.querySelectorAll('[data-trait]')[0].onclick();
 ui.document.querySelectorAll('[data-trait]')[1].onclick();
 ui.document.querySelector('#enroll').onclick();
 const firstMenu=JSON.stringify(ui.G.getScene(ui.saved()).choices);
+const choiceArea=ui.html().slice(ui.html().indexOf('<div class="choices">'));
+assert(!/电量 [+-]\d|学业 [+-]\d|亲密度 [+-]\d|课设 \+\d/.test(choiceArea),'选择前不展示精确后果');assert(choiceArea.includes('¥'),'已知餐价仍可见');
 for(let turn=0;turn<8;turn++){
  const state=ui.saved(),scene=ui.G.getScene(state);
  const options=scene.choices.map((c,i)=>({c,i,score:Math.min(100,state.stats.energy+(c.mods.energy||0))+Math.min(100,state.stats.study+(c.mods.study||0))})).filter(o=>(o.c.mods.money||0)>=-state.stats.money).sort((a,b)=>b.score-a.score);
@@ -75,7 +77,7 @@ for(const target of ['energy','study']){
  assert.equal(failureUI.document.querySelector('#continue-day'),null);
 }
 const duplicateBook=boot(new Map([['naiwa-dorm-endings-v1','["ordinary","ordinary"]']]));
-assert.equal(duplicateBook.document.querySelector('#collection-count').textContent,'1/42');
+assert.equal(duplicateBook.document.querySelector('#collection-count').textContent,'1/45');
 const legacyDay8=require('./fixtures/v2-saves.json').find(f=>f.name==='dayEnd').save;
 const awardUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(legacyDay8)]]));
 awardUI.document.querySelector('#resume-run').onclick();
@@ -94,5 +96,6 @@ const contactUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(loveSample.con
 const confessUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(loveSample.confession)]]));confessUI.document.querySelector('#resume-run').onclick();confessUI.document.querySelectorAll('[data-choice]')[0].onclick();assert(confessUI.saved().romance.dating);assert(confessUI.document.querySelector('#unlock-modal').open);assert(confessUI.document.querySelector('#unlock-list').innerHTML.includes('恋爱日常'));
 assert.equal(confessUI.audioCalls.filter(c=>c.type==='play').length,1);assert(JSON.parse(confessUI.storage.get('naiwa-dorm-endings-v1')).includes('love-ending'));
 const loveReload=boot(confessUI.storage);loveReload.document.querySelector('#resume-run').onclick();assert(loveReload.html().includes('恋人'));assert(!loveReload.document.querySelector('#unlock-modal').open);
+const storyContact=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(require('./fixtures/v6-romance.json'))]]));storyContact.document.querySelector('#resume-run').onclick();assert(storyContact.saved().storyMode);assert(storyContact.G.valid(storyContact.saved()));assert(storyContact.html().includes('class="changes"'),'选择后保留真实变化');
 console.log('通过：天赋跨批、成就弹框、选择静音、课设提交、亲密度显示、告白弹窗及刷新保留。');
 

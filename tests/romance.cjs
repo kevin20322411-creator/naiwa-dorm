@@ -4,18 +4,18 @@ function score(s,c){
  for(const[k,w]of Object.entries(weights)){const a=c.mods[k]||0;value+=a*w*(1+Math.max(0,target[k]-s.stats[k])/target[k]*4);if(a>0)value-=Math.max(0,s.stats[k]+a-(k==='money'?150:100))*w;if(['energy','study','health'].includes(k)&&s.stats[k]+a<=0)value-=10000;}
  const t=G.task(s);if(t.progress<t.target)value+=(c.project||0)*(.4+1.8/t.daysLeft);if(c.submit)value+=200;if(c.miss)value-=150;return value;
 }
-function simulate(seed,limit=18){
- let s=G.create(seed,['brain','toolkit'],'心动奶娃');const samples={initial:s};let turn=0;
+function simulate(seed,limit=18,Engine=G){
+ let s=Engine.create(seed,['brain','toolkit'],'心动奶娃');const samples={initial:s};let turn=0;
  while(s.phase!=='ending'&&turn++<400){
   if(s.phase==='choice'){
-   const scene=G.getScene(s),opts=scene.choices.map((c,i)=>({c,i})).filter(o=>!o.c.disabledReason&&(o.c.mods.money||0)>=-s.stats.money);assert(opts.length);
+   const scene=Engine.getScene(s),opts=scene.choices.map((c,i)=>({c,i})).filter(o=>!o.c.disabledReason&&(o.c.mods.money||0)>=-s.stats.money);assert(opts.length);
    let i=opts.sort((a,b)=>score(s,b.c)-score(s,a.c))[0].i;
    if(scene.id==='love-encounter'){i=0;samples.encounter??=s;}
    else if(scene.id==='love-confession'){i=0;samples.confession??=s;}
    else if(scene.id.startsWith('love-')){i=opts.sort((a,b)=>(b.c.affection||0)-(a.c.affection||0))[0].i;}
-   s=G.choose(s,i);if(s.outcome.contactAdded)samples.contact??=s;if(scene.id==='love-encounter'&&!s.romance.connected)samples.declined??=s;
+   s=Engine.choose(s,i);if(s.outcome.contactAdded)samples.contact??=s;if(scene.id==='love-encounter'&&!s.romance.connected)samples.declined??=s;
    if(s.romance.earned)samples.awarded??=s;
-  }else if(s.phase==='outcome')s=G.next(s);else{if(s.day>=limit)break;s=G.continueDay(s);}
+  }else if(s.phase==='outcome')s=Engine.next(s);else{if(s.day>=limit)break;s=Engine.continueDay(s);}
  }
  return{...samples,last:s};
 }
