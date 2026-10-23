@@ -12,7 +12,7 @@ function boot(storage=new Map()){
  };
  const audioCalls=[];
  const ctx={document,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},console,setTimeout:()=>0,clearTimeout(){},Audio:function(src){return{pause(){audioCalls.push({type:'pause',src});},play(){audioCalls.push({type:'play',src});return Promise.resolve();}}},navigator:{clipboard:{writeText:async()=>{}}},scrollTo(){},Date:class extends Date{static now(){return 0;}},Map,Set,JSON,Math,Object,Array,String,Number,RegExp};ctx.window=ctx;vm.createContext(ctx);
- for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','story','rhythm','wellbeing','food','expressions','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
+ for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','story','rhythm','wellbeing','food','illness','expressions','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
  return{document,storage,audioCalls,G:ctx.DormGame,html:()=>html,saved:()=>JSON.parse(storage.get('naiwa-dorm-run-v2')||'null')};
 }
 const lockUI=boot();lockUI.document.querySelector('#new-run').onclick();
@@ -111,5 +111,10 @@ const gymReload=boot(gymUI.storage);gymReload.document.querySelector('#resume-ru
 const admissionUI=boot();admissionUI.document.querySelector('#new-run').onclick();admissionUI.document.querySelectorAll('[data-trait]')[0].onclick();admissionUI.document.querySelectorAll('[data-trait]')[1].onclick();
 const delayedEnroll=admissionUI.document.querySelector('#enroll').onclick;delayedEnroll();admissionUI.document.querySelectorAll('[data-choice]').find(b=>!b.disabled).onclick();
 const admissionSave=admissionUI.storage.get('naiwa-dorm-run-v2');delayedEnroll();assert.equal(admissionUI.storage.get('naiwa-dorm-run-v2'),admissionSave,'重复或延迟入学操作不能重置已经进行的游戏');
-console.log('通过：原有UI流程、入学防重复、旧按钮误触、跨天防重复和损坏存档回退。');
+const illnessSamples=require('./illness.cjs').fixtures();
+const sickUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(illnessSamples.onset)]]));sickUI.document.querySelector('#resume-run').onclick();assert(sickUI.html().includes('生病状态'));assert(sickUI.document.querySelector('#clinic-btn'));
+sickUI.document.querySelector('#clinic-btn').onclick();assert(sickUI.html().includes('奶娃决定去校医院'));sickUI.document.querySelectorAll('[data-choice]')[0].onclick();assert(!sickUI.saved().illness.active);assert(!sickUI.html().includes('生病状态'));assert(sickUI.G.valid(sickUI.saved()));
+const sickDayUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(illnessSamples.dayEnd)]]));sickDayUI.document.querySelector('#resume-run').onclick();assert(sickDayUI.html().includes('预约明早校医'));assert(!sickDayUI.html().includes('<b>+-'));assert(/健康 <b>-\d/.test(sickDayUI.html()));
+sickDayUI.document.querySelector('#clinic-btn').onclick();const careIndex=sickDayUI.document.querySelectorAll('[data-choice]').findIndex(b=>!b.disabled);sickDayUI.document.querySelectorAll('[data-choice]')[careIndex].onclick();assert(sickDayUI.saved().illness.appointment);assert(sickDayUI.html().includes('已预约明早校医'));assert.equal(sickDayUI.document.querySelector('#clinic-btn'),null);sickDayUI.document.querySelector('#continue-day').onclick();assert(!sickDayUI.saved().illness.active);assert(sickDayUI.G.valid(sickDayUI.saved()));
+console.log('通过：原有UI、入学防重复、生病就诊与预约、次日负数提示、跨天及存档恢复。');
 

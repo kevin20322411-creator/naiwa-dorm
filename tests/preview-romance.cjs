@@ -11,7 +11,8 @@ for(let seed=0;seed<8&&(!fixtures.original||!fixtures.originalWave);seed++){
   if(/^c[0-4]$/.test(a))state=G.choose(state,+a[1]);else if(a==='n')state=G.next(state);else if(a==='d')state=G.continueDay(state);else if(a==='r')state=G.retire(state);else throw Error('Unexpected fixture action '+a);
  }
 }
-for(const [key,state]of Object.entries(fixtures))if(!G.valid(state))throw Error('Invalid '+key);
+const illnessFixtures=require('./illness.cjs').fixtures(),IG=require('../dist/illness.js');Object.assign(fixtures,{sick:illnessFixtures.onset,sickDayEnd:illnessFixtures.dayEnd,junkMenu:illnessFixtures.menu});
+for(const [key,state]of Object.entries(fixtures))if(!IG.valid(state))throw Error('Invalid '+key);
 if(!fixtures.original||!fixtures.originalWave)throw Error('Missing original expression fixtures');
 
 http.createServer((req,res)=>{

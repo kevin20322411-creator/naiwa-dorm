@@ -20,6 +20,7 @@ function scene(s,event){
   const c=o.changes||{},romantic=event.id.startsWith('love-');
   if(o.contactDeleted||(event.id==='love-encounter'&&o.index===0&&!o.contactAdded)||(romantic&&o.intimacyChange<=-12))return get('blue');
   if(s.failed)return get(s.failed==='fail-health'?'blue':'speechless');
+  if(s.illness?.active&&(c.health||0)<0)return get('blue');
   if(o.contactAdded||(romantic&&s.romance?.dating&&o.intimacyChange>0))return get('shy');
   if((c.mood||0)<=-5)return get('angry');
   if((c.study||0)<=-8||((c.health||0)<0&&(c.mood||0)<0))return get('speechless');
@@ -32,6 +33,7 @@ function scene(s,event){
  }
  if(event.id==='love-encounter'||event.id==='love-confession')return get('shy');
  if(event.id==='term-deadline')return get('serious');
+ if(event.id==='clinic-visit')return get('think');
  if(event.id.startsWith('term-')||/突然|蓝屏|坏了|没电|停电/.test(event.title))return get('surprised');
  if(event.kind==='三餐')return get(s.day%2?'original':'original-wave');
  const flags=event.choices?.map(c=>c.flags||{})||[];

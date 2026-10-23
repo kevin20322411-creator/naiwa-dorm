@@ -8,6 +8,6 @@ let html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 html=html.replace(/<link rel="stylesheet" href="\.\/styles\.css(?:\?[^\"]*)?">/,()=>'<style>'+fs.readFileSync(path.join(root,'styles.css'),'utf8')+'</style>');
 html=html.replace('href="./assets/frog-wave.png"','href="'+assets['frog-wave.png']+'"');
 html=html.replace('<script src="./engine.js"></script>','<script>window.DormAssets='+JSON.stringify(assets)+';</script><script>'+fs.readFileSync(path.join(root,'engine.js'),'utf8').replaceAll('</script','<\\/script')+'</script>');
-for(const name of ['events','campus','economy','challenges','life','survival','semester','romance','story','rhythm','wellbeing','food','expressions','app'])html=html.replace(new RegExp('<script src="\\./'+name+'\\.js(?:\\?[^\"]*)?"></script>'),()=>'<script>'+fs.readFileSync(path.join(root,name+'.js'),'utf8').replaceAll('</script','<\\/script')+'</script>');
+for(const name of ['events','campus','economy','challenges','life','survival','semester','romance','story','rhythm','wellbeing','food','illness','expressions','app'])html=html.replace(new RegExp('<script src="\\./'+name+'\\.js(?:\\?[^\"]*)?"></script>'),()=>'<script>'+fs.readFileSync(path.join(root,name+'.js'),'utf8').replaceAll('</script','<\\/script')+'</script>');
 fs.writeFileSync(target,html,'utf8');
 console.log('已生成单文件体验版：'+target+' ('+fs.statSync(target).size+' bytes)');
