@@ -44,7 +44,7 @@ function traitsView(){
  document.querySelector('#player-name').oninput=e=>draftName=e.target.value;
  document.querySelector('#back-home').onclick=()=>{home();goTop();};
  document.querySelector('#reroll').onclick=()=>{draftName=document.querySelector('#player-name').value;draftSeed=(draftSeed+7391)>>>0;offered=G.newDraft(draftSeed,selected,offered);traitsView();};
- document.querySelector('#enroll').onclick=()=>{if(selected.length!==2)return;state=G.create(draftSeed,selected,draftName,recent);persist();gameView();goTop();};
+ document.querySelector('#enroll').onclick=()=>{if(view!=='traits'||selected.length!==2)return;state=G.create(draftSeed,selected,draftName,recent);persist();gameView();goTop();};
 }
 
 function openingBuffHTML(){

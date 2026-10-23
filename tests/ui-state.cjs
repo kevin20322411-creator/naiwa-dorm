@@ -12,7 +12,7 @@ function boot(storage=new Map()){
  };
  const audioCalls=[];
  const ctx={document,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},console,setTimeout:()=>0,clearTimeout(){},Audio:function(src){return{pause(){audioCalls.push({type:'pause',src});},play(){audioCalls.push({type:'play',src});return Promise.resolve();}}},navigator:{clipboard:{writeText:async()=>{}}},scrollTo(){},Date:class extends Date{static now(){return 0;}},Map,Set,JSON,Math,Object,Array,String,Number,RegExp};ctx.window=ctx;vm.createContext(ctx);
- for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','story','rhythm','expressions','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
+ for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','story','rhythm','wellbeing','expressions','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
  return{document,storage,audioCalls,G:ctx.DormGame,html:()=>html,saved:()=>JSON.parse(storage.get('naiwa-dorm-run-v2')||'null')};
 }
 const lockUI=boot();lockUI.document.querySelector('#new-run').onclick();
@@ -108,5 +108,8 @@ for(const bad of ['broken JSON','null','{}','[]'])assert.doesNotThrow(()=>boot(n
 const gymUI=boot();gymUI.document.querySelector('#new-run').onclick();gymUI.document.querySelectorAll('[data-trait]')[0].onclick();gymUI.document.querySelectorAll('[data-trait]')[1].onclick();gymUI.document.querySelector('#enroll').onclick();gymUI.document.querySelectorAll('[data-choice]').find(b=>!b.disabled).onclick();
 const gymButton=gymUI.document.querySelectorAll('[data-activity]').find(b=>b.dataset.activity==='gym');assert(gymButton,'事件后有主动健身入口');gymButton.onclick();assert(gymUI.saved().rhythm.pending);assert(gymUI.html().includes('自重练习'));
 const gymReload=boot(gymUI.storage);gymReload.document.querySelector('#resume-run').onclick();const gymHealth=gymReload.saved().stats.health;gymReload.document.querySelectorAll('[data-choice]')[1].onclick();assert(gymReload.saved().stats.health>gymHealth);assert.equal(gymReload.saved().outcome.origin,'self');assert(gymReload.G.valid(gymReload.saved()));assert(!gymReload.html().includes(' / 8'));
-console.log('通过：原有UI流程、快速连点、旧按钮误触、跨天防重复和损坏存档回退。');
+const admissionUI=boot();admissionUI.document.querySelector('#new-run').onclick();admissionUI.document.querySelectorAll('[data-trait]')[0].onclick();admissionUI.document.querySelectorAll('[data-trait]')[1].onclick();
+const delayedEnroll=admissionUI.document.querySelector('#enroll').onclick;delayedEnroll();admissionUI.document.querySelectorAll('[data-choice]').find(b=>!b.disabled).onclick();
+const admissionSave=admissionUI.storage.get('naiwa-dorm-run-v2');delayedEnroll();assert.equal(admissionUI.storage.get('naiwa-dorm-run-v2'),admissionSave,'重复或延迟入学操作不能重置已经进行的游戏');
+console.log('通过：原有UI流程、入学防重复、旧按钮误触、跨天防重复和损坏存档回退。');
 
