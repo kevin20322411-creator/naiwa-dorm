@@ -1,7 +1,7 @@
 // Isolated visual QA origin: a real, replay-validated day-15 save from normal choices.
 // Never served by the production entry or the regular preview server.
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path');
-const G=require('../dist/story.js'),sample=require('./romance.cjs').simulate(0,18,G),root=path.resolve(__dirname,'../dist');
+const G=require('../dist/story.js'),sample=require('./romance.cjs').simulate(Number(process.argv[2]||0),18,G),root=path.resolve(__dirname,'../dist');
 if(!G.valid(sample.confession))throw Error('Invalid preview fixture');
 http.createServer((req,res)=>{
  const rel=new URL(req.url,'http://localhost').pathname,p=path.resolve(root,'.'+(rel==='/'?'/index.html':rel));
