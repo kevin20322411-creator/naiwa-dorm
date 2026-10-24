@@ -60,3 +60,5 @@ dialog{border:0;border-radius:28px;background:#fff;padding:32px;width:660px;max-
 /* Persistent illness feedback stays compact; treatment is a deliberate action. */
 .illness-card{margin:16px 0 24px;padding:16px 18px;border:1px solid #eadbc5;border-radius:18px;background:#fcf9f3;color:#66543b}
 .illness-card>div{display:flex;align-items:center;justify-content:space-between;gap:12px}.illness-card strong{font-size:14px}.illness-card span,.illness-card p{font-size:12px;line-height:1.6}.illness-card p{margin:8px 0 0}.illness-card .text-btn{padding:10px 0 0;color:#805a23;min-height:40px}.illness-hint{opacity:.8}
+.scene-art.romance-art.expression-art>img.scene-naishu{position:static;inset:auto;width:100%;height:var(--romance-figure);max-width:var(--romance-figure);object-fit:contain;justify-self:center;align-self:end;filter:none;transform:none}
+.scene-art.mouse-art{background:#f7f6ed}.scene-art.mouse-art .scene-bubble{background:#ecefdc;color:#5d6243}

@@ -12,7 +12,9 @@ for(let seed=0;seed<8&&(!fixtures.original||!fixtures.originalWave);seed++){
  }
 }
 const illnessFixtures=require('./illness.cjs').fixtures(),IG=require('../dist/illness.js');Object.assign(fixtures,{sick:illnessFixtures.onset,sickDayEnd:illnessFixtures.dayEnd,junkMenu:illnessFixtures.menu});
-for(const [key,state]of Object.entries(fixtures))if(!IG.valid(state))throw Error('Invalid '+key);
+const meetingFixtures=require('./meetings.cjs').fixtures(),MG=require('../dist/meetings.js');Object.assign(fixtures,{meetingGroup:meetingFixtures.group,meetingDeclined:meetingFixtures.declinedBefore});
+const wellnessFixtures=require('./wellness.cjs').fixtures(),WG=require('../dist/wellness.js');Object.assign(fixtures,{mouse:wellnessFixtures.mouse,mouseStudy:wellnessFixtures.mouseStudy,cold:wellnessFixtures.cold});
+for(const [key,state]of Object.entries(fixtures))if(!WG.valid(state))throw Error('Invalid '+key);
 if(!fixtures.original||!fixtures.originalWave)throw Error('Missing original expression fixtures');
 
 http.createServer((req,res)=>{

@@ -12,7 +12,7 @@ function boot(storage=new Map()){
  };
  const audioCalls=[];
  const ctx={document,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},console,setTimeout:()=>0,clearTimeout(){},Audio:function(src){return{pause(){audioCalls.push({type:'pause',src});},play(){audioCalls.push({type:'play',src});return Promise.resolve();}}},navigator:{clipboard:{writeText:async()=>{}}},scrollTo(){},Date:class extends Date{static now(){return 0;}},Map,Set,JSON,Math,Object,Array,String,Number,RegExp};ctx.window=ctx;vm.createContext(ctx);
- for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','story','rhythm','wellbeing','food','illness','expressions','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
+ for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','story','rhythm','wellbeing','food','illness','meetings','wellness','expressions','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
  return{document,storage,audioCalls,G:ctx.DormGame,html:()=>html,saved:()=>JSON.parse(storage.get('naiwa-dorm-run-v2')||'null')};
 }
 const lockUI=boot();lockUI.document.querySelector('#new-run').onclick();
@@ -29,7 +29,7 @@ lockUI.document.querySelectorAll('[data-remove-trait]').find(b=>b.dataset.remove
 assert.equal(lockUI.document.querySelectorAll('[data-remove-trait]').length,1);
 lockUI.document.querySelectorAll('[data-trait]')[0].onclick();lockUI.document.querySelector('#enroll').onclick();
 assert.equal(lockUI.saved().name,'锁定奶娃');assert(lockUI.saved().traits.includes(held));assert(!lockUI.saved().traits.includes(locked));
-const ui=boot();assert(ui.html().includes('116 种校园事件'));assert(ui.html().includes('20 种天赋'));
+const ui=boot();assert(ui.html().includes(ui.G.eventCount+' 种校园事件'));assert(ui.html().includes('20 种天赋'));
 ui.document.querySelector('#new-run').onclick();
 ui.document.querySelectorAll('[data-trait]')[0].onclick();
 ui.document.querySelectorAll('[data-trait]')[1].onclick();
@@ -116,5 +116,12 @@ const sickUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(illnessSamples.on
 sickUI.document.querySelector('#clinic-btn').onclick();assert(sickUI.html().includes('奶娃决定去校医院'));sickUI.document.querySelectorAll('[data-choice]')[0].onclick();assert(!sickUI.saved().illness.active);assert(!sickUI.html().includes('生病状态'));assert(sickUI.G.valid(sickUI.saved()));
 const sickDayUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(illnessSamples.dayEnd)]]));sickDayUI.document.querySelector('#resume-run').onclick();assert(sickDayUI.html().includes('预约明早校医'));assert(!sickDayUI.html().includes('<b>+-'));assert(/健康 <b>-\d/.test(sickDayUI.html()));
 sickDayUI.document.querySelector('#clinic-btn').onclick();const careIndex=sickDayUI.document.querySelectorAll('[data-choice]').findIndex(b=>!b.disabled);sickDayUI.document.querySelectorAll('[data-choice]')[careIndex].onclick();assert(sickDayUI.saved().illness.appointment);assert(sickDayUI.html().includes('已预约明早校医'));assert.equal(sickDayUI.document.querySelector('#clinic-btn'),null);sickDayUI.document.querySelector('#continue-day').onclick();assert(!sickDayUI.saved().illness.active);assert(sickDayUI.G.valid(sickDayUI.saved()));
-console.log('通过：原有UI、入学防重复、生病就诊与预约、次日负数提示、跨天及存档恢复。');
+const meetingSamples=require('./meetings.cjs').fixtures();
+const groupUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(meetingSamples.group)]]));groupUI.document.querySelector('#resume-run').onclick();assert(groupUI.html().includes('小组作业'));assert(groupUI.html().includes('先一起拆解任务'));groupUI.document.querySelectorAll('[data-choice]')[1].onclick();assert.equal(groupUI.saved().outcome.project,6);assert(groupUI.G.valid(groupUI.saved()));
+const declinedUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(meetingSamples.declinedBefore)]]));declinedUI.document.querySelector('#resume-run').onclick();declinedUI.document.querySelectorAll('[data-choice]')[0].onclick();assert.equal(declinedUI.saved().outcome.changes.mood,-6);assert(declinedUI.html().includes('心情 -6'));assert(!declinedUI.saved().romance.connected);
+const junkUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(illnessSamples.menu)]]));junkUI.document.querySelector('#resume-run').onclick();assert(junkUI.G.getScene(junkUI.saved()).choices.some(c=>c.riskFood));assert(!junkUI.html().includes('可能引起身体不适'));assert(!junkUI.html().includes('患病风险'));
+const wellnessSamples=require('./wellness.cjs').fixtures();
+const mouseUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(wellnessSamples.mouseStudy)]]));mouseUI.document.querySelector('#resume-run').onclick();assert(mouseUI.html().includes('naishu.png'));assert(mouseUI.html().includes('奶鼠'));assert(mouseUI.html().includes('mouse-art'));assert(mouseUI.html().includes('自习'));mouseUI.document.querySelectorAll('[data-choice]')[0].onclick();assert(mouseUI.G.valid(mouseUI.saved()));
+const coldUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(wellnessSamples.cold)]]));coldUI.document.querySelector('#resume-run').onclick();assert(coldUI.html().includes('奶娃感冒了'));assert(coldUI.html().includes('先休息一阵'));const coldHealth=coldUI.saved().stats.health;coldUI.document.querySelectorAll('[data-choice]')[1].onclick();assert.equal(coldUI.saved().stats.health,coldHealth);assert(coldUI.saved().illness.active);assert(coldUI.G.valid(coldUI.saved()));
+console.log('通过：相识与婉拒心情、隐藏食物风险、奶鼠配图、自习偶遇、感冒与休息，以及原有UI与存档恢复。');
 
