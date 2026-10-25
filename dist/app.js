@@ -1,6 +1,7 @@
 (()=>{
 'use strict';
 const G=window.DormGame,E=window.DormExpressions,app=document.querySelector('#app'),saveKey='naiwa-dorm-run-v2',bookKey='naiwa-dorm-endings-v1';
+const RELEASE={version:'6.12',date:'2026.10.25',items:['新增彩票随机事件','新增隐藏结局与成就','丰富奶鼠偶遇与奶粉互动','扩充校园日常与自主活动','新增开场公告，完善版本展示']};
 const read=(k,fallback)=>{try{return JSON.parse(localStorage.getItem(k))??fallback;}catch{return fallback;}};
 const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch{return false;}};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -26,6 +27,15 @@ function persist(){if(state&&!write(saveKey,state))toast('当前浏览器不能�
 function goTop(){window.scrollTo({top:0,behavior:'instant'});}
 function soundUI(){const b=document.querySelector('#sound-btn');b.textContent=sound?'音效开':'音效关';b.setAttribute('aria-pressed',String(sound));b.setAttribute('aria-label',sound?'关闭音效':'开启音效');}
 function updateBook(){document.querySelector('#collection-count').textContent=seen.length+'/'+G.endings.length;}
+function showRelease(){
+ const modal=document.querySelector('#release-modal');
+ document.querySelector('#release-version').textContent='v'+RELEASE.version;
+ document.querySelector('#release-date').textContent=RELEASE.date;
+ document.querySelector('#release-list').innerHTML=RELEASE.items.map(item=>'<li>'+esc(item)+'</li>').join('');
+ document.querySelector('#release-skip').checked=read('naiwa-dorm-release-hidden',null)===RELEASE.version;
+ if(!modal.open)modal.showModal();
+}
+function dismissRelease(){write('naiwa-dorm-release-hidden',document.querySelector('#release-skip').checked?RELEASE.version:null);document.querySelector('#release-modal').close();}
 function statHTML(s){return G.statKeys(s).map(k=>`<div class="stat ${s[k]<(k==='money'?8:20)?'warning':''}"><div class="stat-head"><span>${G.labels[k]}</span><b>${k==='money'?'¥':''}${s[k]}</b></div><div class="stat-track"><i style="width:${Math.min(100,s[k])}%"></i></div></div>`).join('');}
 function home(){
  clearCard();
@@ -158,5 +168,11 @@ document.querySelector('#unlock-book').onclick=()=>{document.querySelector('#unl
 document.querySelector('#unlock-modal').onclick=e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.currentTarget.close();}};
 document.querySelector('#sound-btn').onclick=()=>{sound=!sound;write('naiwa-dorm-sound',sound);soundUI();if(sound)speak('award',true);else stopVoice();};
 document.querySelector('.brand').onclick=e=>{e.preventDefault();home();goTop();};
+document.querySelector('#version-btn').textContent=document.querySelector('#footer-version').textContent='v'+RELEASE.version;
+document.querySelector('#version-btn').onclick=showRelease;
+document.querySelector('#release-close').onclick=document.querySelector('#release-accept').onclick=dismissRelease;
+document.querySelector('#release-modal').oncancel=e=>{e.preventDefault();dismissRelease();};
+document.querySelector('#release-modal').onclick=e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dismissRelease();}};
 soundUI();updateBook();home();
+if(read('naiwa-dorm-release-hidden',null)!==RELEASE.version)showRelease();
 })();

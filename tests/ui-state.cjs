@@ -3,7 +3,7 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const source=__dirname+'/../dist/';
 function boot(storage=new Map()){
  const nodes=new Map(),lists=new Map();let html='';
- const staticIds=new Set(['app','toast','collection-count','sound-btn','collection-btn','collection-modal','collection-grid','close-modal','close-modal-bottom','unlock-modal','unlock-title','unlock-list','unlock-close','unlock-accept','unlock-book']);
+ const staticIds=new Set(['app','toast','collection-count','sound-btn','collection-btn','collection-modal','collection-grid','close-modal','close-modal-bottom','unlock-modal','unlock-title','unlock-list','unlock-close','unlock-accept','unlock-book','version-btn','footer-version','release-modal','release-version','release-date','release-list','release-skip','release-close','release-accept']);
  function element(id){if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',style:{},dataset:{},classList:{add(){},remove(){}},setAttribute(){},focus(){},showModal(){this.open=true;},close(){this.open=false;},getBoundingClientRect(){return{left:0,top:0,right:100,bottom:100};}});return nodes.get(id);}
  const app=element('app');Object.defineProperty(app,'innerHTML',{get(){return html;},set(value){html=value;for(const key of nodes.keys())if(!staticIds.has(key)&&key!=='brand'&&key!=='intro')nodes.delete(key);lists.clear();}});
  const document={
@@ -15,6 +15,8 @@ function boot(storage=new Map()){
  for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','story','rhythm','wellbeing','food','illness','meetings','wellness','campus-life','evolution','lottery','expressions','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
  return{document,storage,audioCalls,G:ctx.DormGame,html:()=>html,saved:()=>JSON.parse(storage.get('naiwa-dorm-run-v2')||'null')};
 }
+const releaseUI=boot();assert(releaseUI.document.querySelector('#release-modal').open,'进入时自动展示公告');assert.equal(releaseUI.document.querySelector('#release-version').textContent,'v6.12');assert(releaseUI.document.querySelector('#release-list').innerHTML.includes('新增彩票随机事件'));assert(!/概率|100万|1000000|20%|亲密度|触发条件/.test(releaseUI.document.querySelector('#release-list').innerHTML),'公告不泄露结果与条件');
+releaseUI.document.querySelector('#release-accept').onclick();assert(!releaseUI.document.querySelector('#release-modal').open);assert(boot(releaseUI.storage).document.querySelector('#release-modal').open,'未选择不再提醒时，下次进入仍展示');releaseUI.document.querySelector('#version-btn').onclick();assert(releaseUI.document.querySelector('#release-modal').open,'顶部版本可重新查看');releaseUI.document.querySelector('#release-skip').checked=true;releaseUI.document.querySelector('#release-close').onclick();assert(!boot(releaseUI.storage).document.querySelector('#release-modal').open,'同版本不再提醒');const olderRelease=boot(new Map([['naiwa-dorm-release-hidden','"6.11"']]));assert(olderRelease.document.querySelector('#release-modal').open,'新版本重新提醒');olderRelease.document.querySelector('#release-modal').oncancel({preventDefault(){}});assert(!olderRelease.document.querySelector('#release-modal').open,'Escape可关闭');assert.equal(releaseUI.saved(),null,'公告操作不修改游戏存档');
 const lockUI=boot();lockUI.document.querySelector('#new-run').onclick();
 lockUI.document.querySelector('#player-name').value='锁定奶娃';
 const originalBatch=lockUI.document.querySelectorAll('[data-trait]').map(b=>b.dataset.trait),locked=originalBatch[0];
