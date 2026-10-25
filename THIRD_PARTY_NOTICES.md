@@ -25,3 +25,5 @@
 | `dist/assets/meme-surprised.png` | 第 8 张，惊讶 |
 | `dist/assets/meme-wave.png` | 第 9 张，挥手 |
 奶鼠配图 `dist/assets/naishu.png` 为用户于 2026-10-25 提供的原始表情包，未经图像改动。角色和图片不包含在程序代码的 MIT 授权中。
+
+`dist/assets/naishu-cutout.png` 是以上用户提供的奶鼠图片经内置图片编辑工具提取透明背景后的版本，供角色与场景背景融合；原图仍保留，角色及衍生图片不包含在 MIT 代码许可内。

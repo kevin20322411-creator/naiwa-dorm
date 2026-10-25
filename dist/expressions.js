@@ -21,6 +21,7 @@ function scene(s,event){
   if(o.contactDeleted||(event.id==='love-encounter'&&o.index===0&&!o.contactAdded)||(romantic&&o.intimacyChange<=-12))return get('blue');
   if(s.failed)return get(s.failed==='fail-health'?'blue':'speechless');
   if(s.illness?.active&&(c.health||0)<0)return get('blue');
+  if(event.id==='evo-breakup')return get('blue');
   if(o.contactAdded||(romantic&&s.romance?.dating&&o.intimacyChange>0))return get('shy');
   if((c.mood||0)<=-5)return get('angry');
   if((c.study||0)<=-8||((c.health||0)<0&&(c.mood||0)<0))return get('speechless');
@@ -45,7 +46,7 @@ function scene(s,event){
 }
 const endingMap={
  chaos:'laugh',poor:'blue',tired:'speechless',skip:'surprised',hero:'serious',popular:'original-wave',scholar:'serious',rich:'laugh',lucky:'surprised',battery:'laugh',balanced:'original',ordinary:'original',cat:'shy',viral:'laugh',artist:'shy',week:'original-wave',
- 'fail-energy':'speechless','fail-study':'speechless','fail-health':'blue','fail-course':'serious',
+ 'fail-energy':'speechless','fail-study':'speechless','fail-health':'blue','fail-mood':'blue','fail-course':'serious',
  athlete:'shy',trader:'think',worker:'serious',informant:'think',gardener:'shy',inventor:'think','meal-pal':'original-wave',helper:'wave',library:'think',freshman:'original-wave',degree:'serious',honor:'laugh',
  'hidden-cat-advisor':'shy','hidden-broke-chaos':'laugh','hidden-early-miracle':'surprised','hard-balanced-fortnight':'laugh','hard-library-maker':'think','hard-perfect-month':'laugh',
  'course-pass':'laugh','course-clutch':'speechless','course-streak':'serious','love-ending':'shy','steady-life':'laugh','quiet-break':'speechless',recovery:'shy'
