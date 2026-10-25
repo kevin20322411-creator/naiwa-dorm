@@ -45,7 +45,7 @@ function scene(s,event){
  return get(['original','think','original-wave','original','serious','original-wave'][h%6]);
 }
 const endingMap={
- chaos:'laugh',poor:'blue',tired:'speechless',skip:'surprised',hero:'serious',popular:'original-wave',scholar:'serious',rich:'laugh',lucky:'surprised',battery:'laugh',balanced:'original',ordinary:'original',cat:'shy',viral:'laugh',artist:'shy',week:'original-wave',
+ 'lottery-winner':'laugh',chaos:'laugh',poor:'blue',tired:'speechless',skip:'surprised',hero:'serious',popular:'original-wave',scholar:'serious',rich:'laugh',lucky:'surprised',battery:'laugh',balanced:'original',ordinary:'original',cat:'shy',viral:'laugh',artist:'shy',week:'original-wave',
  'fail-energy':'speechless','fail-study':'speechless','fail-health':'blue','fail-mood':'blue','fail-course':'serious',
  athlete:'shy',trader:'think',worker:'serious',informant:'think',gardener:'shy',inventor:'think','meal-pal':'original-wave',helper:'wave',library:'think',freshman:'original-wave',degree:'serious',honor:'laugh',
  'hidden-cat-advisor':'shy','hidden-broke-chaos':'laugh','hidden-early-miracle':'surprised','hard-balanced-fortnight':'laugh','hard-library-maker':'think','hard-perfect-month':'laugh',

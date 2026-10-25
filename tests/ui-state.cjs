@@ -12,7 +12,7 @@ function boot(storage=new Map()){
  };
  const audioCalls=[];
  const ctx={document,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},console,setTimeout:()=>0,clearTimeout(){},Audio:function(src){return{pause(){audioCalls.push({type:'pause',src});},play(){audioCalls.push({type:'play',src});return Promise.resolve();}}},navigator:{clipboard:{writeText:async()=>{}}},scrollTo(){},Date:class extends Date{static now(){return 0;}},Map,Set,JSON,Math,Object,Array,String,Number,RegExp};ctx.window=ctx;vm.createContext(ctx);
- for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','story','rhythm','wellbeing','food','illness','meetings','wellness','campus-life','evolution','expressions','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
+ for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','story','rhythm','wellbeing','food','illness','meetings','wellness','campus-life','evolution','lottery','expressions','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
  return{document,storage,audioCalls,G:ctx.DormGame,html:()=>html,saved:()=>JSON.parse(storage.get('naiwa-dorm-run-v2')||'null')};
 }
 const lockUI=boot();lockUI.document.querySelector('#new-run').onclick();
@@ -128,4 +128,9 @@ const failedCourseUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(bugSample
 const mouseContextUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(bugSamples.mouseBefore)]]));mouseContextUI.document.querySelector('#resume-run').onclick();mouseContextUI.document.querySelector('#next-scene').onclick();assert.equal(mouseContextUI.G.getScene(mouseContextUI.saved()).place,'食堂外');assert(mouseContextUI.G.valid(mouseContextUI.saved()));
 const campusUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(campusSamples.newCampus)]]));campusUI.document.querySelector('#resume-run').onclick();assert(campusUI.html().includes('校园征集'));campusUI.document.querySelectorAll('[data-choice]').find(c=>!c.disabled).onclick();assert(campusUI.G.valid(campusUI.saved()));
 console.log('通过：二次缺交终止、奶鼠场景一致、新校园事件，以及原有UI、互动和存档恢复。');
+
+const lotterySamples=require('./lottery.cjs').fixtures();
+const lotteryUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(lotterySamples.offers[0])]]));lotteryUI.document.querySelector('#resume-run').onclick();assert(lotteryUI.html().includes('彩票摊'));assert(lotteryUI.html().includes('¥5'));lotteryUI.document.querySelectorAll('[data-choice]')[1].onclick();assert.equal(lotteryUI.saved().lottery.won,false);assert(lotteryUI.G.valid(lotteryUI.saved()));
+const jackpotUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(lotterySamples.jackpot.before)]]));jackpotUI.document.querySelector('#resume-run').onclick();jackpotUI.document.querySelectorAll('[data-choice]')[0].onclick();assert.equal(jackpotUI.saved().phase,'ending');assert(jackpotUI.html().includes('奶生赢家'));assert(jackpotUI.html().includes('large-money'));assert.equal(jackpotUI.document.querySelector('#continue-day'),null);assert(jackpotUI.document.querySelector('#unlock-modal').open);assert(jackpotUI.G.valid(jackpotUI.saved()));
+console.log('通过：彩票价格、不买继续、百万大奖结局和金额显示。');
 
