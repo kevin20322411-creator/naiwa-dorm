@@ -12,7 +12,7 @@ function boot(storage=new Map()){
  };
  const audioCalls=[];
  const ctx={document,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},console,setTimeout:()=>0,clearTimeout(){},Audio:function(src){return{pause(){audioCalls.push({type:'pause',src});},play(){audioCalls.push({type:'play',src});return Promise.resolve();}}},navigator:{clipboard:{writeText:async()=>{}}},scrollTo(){},Date:class extends Date{static now(){return 0;}},Map,Set,JSON,Math,Object,Array,String,Number,RegExp};ctx.window=ctx;vm.createContext(ctx);
- for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','story','rhythm','wellbeing','food','illness','meetings','wellness','expressions','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
+ for(const name of ['engine','events','campus','economy','challenges','life','survival','semester','romance','story','rhythm','wellbeing','food','illness','meetings','wellness','campus-life','expressions','app'])vm.runInContext(fs.readFileSync(source+name+'.js','utf8'),ctx,{filename:name+'.js'});
  return{document,storage,audioCalls,G:ctx.DormGame,html:()=>html,saved:()=>JSON.parse(storage.get('naiwa-dorm-run-v2')||'null')};
 }
 const lockUI=boot();lockUI.document.querySelector('#new-run').onclick();
@@ -123,5 +123,9 @@ const junkUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(illnessSamples.me
 const wellnessSamples=require('./wellness.cjs').fixtures();
 const mouseUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(wellnessSamples.mouseStudy)]]));mouseUI.document.querySelector('#resume-run').onclick();assert(mouseUI.html().includes('naishu.png'));assert(mouseUI.html().includes('奶鼠'));assert(mouseUI.html().includes('mouse-art'));assert(mouseUI.html().includes('自习'));mouseUI.document.querySelectorAll('[data-choice]')[0].onclick();assert(mouseUI.G.valid(mouseUI.saved()));
 const coldUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(wellnessSamples.cold)]]));coldUI.document.querySelector('#resume-run').onclick();assert(coldUI.html().includes('奶娃感冒了'));assert(coldUI.html().includes('先休息一阵'));const coldHealth=coldUI.saved().stats.health;coldUI.document.querySelectorAll('[data-choice]')[1].onclick();assert.equal(coldUI.saved().stats.health,coldHealth);assert(coldUI.saved().illness.active);assert(coldUI.G.valid(coldUI.saved()));
-console.log('通过：相识与婉拒心情、隐藏食物风险、奶鼠配图、自习偶遇、感冒与休息，以及原有UI与存档恢复。');
+const campusTests=require('./campus-life.cjs'),bugSamples=campusTests.legacyBugs(),campusSamples=campusTests.fixtures();
+const failedCourseUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(bugSamples.courseAfter)]]));failedCourseUI.document.querySelector('#resume-run').onclick();assert.equal(failedCourseUI.saved().failed,'fail-course');assert(failedCourseUI.html().includes('重修'));assert.equal(failedCourseUI.document.querySelector('#continue-day'),null);
+const mouseContextUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(bugSamples.mouseBefore)]]));mouseContextUI.document.querySelector('#resume-run').onclick();mouseContextUI.document.querySelector('#next-scene').onclick();assert.equal(mouseContextUI.G.getScene(mouseContextUI.saved()).place,'食堂');assert(mouseContextUI.G.valid(mouseContextUI.saved()));
+const campusUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(campusSamples.newCampus)]]));campusUI.document.querySelector('#resume-run').onclick();assert(campusUI.html().includes('校园征集'));campusUI.document.querySelectorAll('[data-choice]').find(c=>!c.disabled).onclick();assert(campusUI.G.valid(campusUI.saved()));
+console.log('通过：二次缺交终止、奶鼠场景一致、新校园事件，以及原有UI、互动和存档恢复。');
 
