@@ -64,3 +64,4 @@ dialog{border:0;border-radius:28px;background:#fff;padding:32px;width:660px;max-
 .scene-art.mouse-art{background:#f7f6ed}.scene-art.mouse-art .scene-bubble{background:#ecefdc;color:#5d6243}
 
 .ending-stats .large-money b{font-size:13px;overflow-wrap:anywhere}
+.brand-version{margin-left:7px;font-size:10px;font-weight:400;letter-spacing:0;color:var(--muted)}
