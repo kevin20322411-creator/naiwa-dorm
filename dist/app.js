@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const G=window.DormGame,E=window.DormExpressions,app=document.querySelector('#app'),saveKey='naiwa-dorm-run-v2',bookKey='naiwa-dorm-endings-v1';
-const RELEASE={version:'6.13',date:'2026.10.26',items:['统一角色名称与相关文案','新增魅力与生活习惯系统','扩充开局天赋与搭配','丰富奶粉和奶鼠互动','优化三餐与就诊体验']};
+const RELEASE={version:'6.14',date:'2026.10.26',items:['扩充三餐与聚餐菜单','增加不同价位的大餐选择','调整健康与心情恢复节奏']};
 const read=(k,fallback)=>{try{return JSON.parse(localStorage.getItem(k))??fallback;}catch{return fallback;}};
 const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch{return false;}};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -110,7 +110,7 @@ function gameView(){
  clearCard();
  view='game';
  if(!state){home();return;}
- const upgraded=G.enableCharacter(G.enableCampusRevision(G.enableLottery(G.enableEvolution(G.enableCampus(G.enableWellness(G.enableMeetings(G.enableIllness(G.enableFood(G.enableRhythm(G.enableStory(G.enableRomance(G.enableBalance(G.enableCare(G.enableLife(state)))))))))))))));if(upgraded!==state){state=upgraded;persist();}
+ const characterUpgrade=G.enableCharacter(G.enableCampusRevision(G.enableLottery(G.enableEvolution(G.enableCampus(G.enableWellness(G.enableMeetings(G.enableIllness(G.enableFood(G.enableRhythm(G.enableStory(G.enableRomance(G.enableBalance(G.enableCare(G.enableLife(state)))))))))))))));const upgraded=G.enableDining(characterUpgrade);if(upgraded!==state){state=upgraded;persist();}
  if(state.phase==='ending'||state.phase==='dayEnd'){endingView();return;}
  const renderedState=state,scene=G.getScene(state),expression=E.scene(state,scene);
  if(!seenEvents.includes(scene.id)){seenEvents.push(scene.id);write('naiwa-dorm-events-v2',seenEvents);}
