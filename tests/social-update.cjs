@@ -1,0 +1,9 @@
+const assert=require('node:assert/strict'),G=require('../dist/social-update.js'),B=require('../dist/dining.js'),W=require('./wellness.cjs'),D=require('./dining.cjs');
+function checks(){let sample;const runs=[];for(let seed=0;seed<16;seed++){const Engine={...D.engine(G),choose(s,i){const n=G.choose(s,i);if(n.outcome?.ignored)sample??={s,i,n};return n;}};const r=W.run(Engine,seed,16);assert(G.valid(r.s),'社交回放 '+seed);runs.push(r.s);}assert(sample,'真实流程触发被忽视');const{s,i,n}=sample;assert(s.stats.social<30);assert(n.stats.mood<s.stats.mood);assert(n.stats.social<=s.stats.social);assert.equal(n.socialUpdate.ignoredDay,s.day);assert.deepEqual(G.choose(s,i),n,'刷新不重抽');assert(G.valid(n));
+ let low=0,high=0;for(let seed=0;seed<2000;seed++){const a={...s,seed,stats:{...s.stats,social:5}},b={...a,stats:{...a.stats,social:29}};low+=!!G.choose(a,i).outcome.ignored;high+=!!G.choose(b,i).outcome.ignored;}assert(low>high);assert(Math.abs(low/2000-.4)<.04);assert(Math.abs(high/2000-.16)<.04);
+ const done={...s,socialUpdate:{ignoredDay:s.day}};assert(!G.choose(done,i).outcome.ignored);assert(!G.choose({...s,stats:{...s.stats,social:30}},i).outcome.ignored);
+ const meal={...G.create(0,['brain','toolkit','athletic'],'吃饭'),stats:{...G.create(0,['brain','toolkit','athletic'],'吃饭').stats,social:0}};for(let j=0;j<5;j++){const c=G.getScene(meal).choices[j];if((c.mods.money||0)>=-meal.stats.money)assert(!G.choose(meal,j).outcome.ignored);}
+ const f=require('./fixtures/v6-character.json');for(const old of Object.values(f))assert.deepEqual(G.restore(old),old);const diningRuns=require('./dining.cjs').engine(B);const old=W.run(diningRuns,0,3).s;assert.deepEqual(G.restore(old),old);const up=G.enableSocialUpdate(old);assert(G.valid(up));
+ console.log(JSON.stringify({passed:true,runs:runs.length,ignoredAtSocial5:low/2000,ignoredAtSocial29:high/2000,oncePerDay:true,replay:true}));return sample;
+}
+if(require.main===module)checks();module.exports={checks};
