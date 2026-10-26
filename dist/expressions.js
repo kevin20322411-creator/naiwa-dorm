@@ -1,17 +1,17 @@
 (function(root){
 'use strict';
 const expressions={
- original:{file:'frog.png',alt:'今日份奶娃',caption:'日子继续。',original:true},
- 'original-wave':{file:'frog-wave.png',alt:'原来的挥手奶娃',caption:'奶娃还在。',original:true},
- blue:{file:'meme-blue.png',alt:'切换忧郁模式的奶娃',caption:'先缓一缓。'},
- laugh:{file:'meme-laugh.png',alt:'仰头大笑的奶娃',caption:'这下舒服了。'},
- shy:{file:'meme-shy.png',alt:'有点害羞又开心的奶娃',caption:'有点不好意思。'},
- think:{file:'meme-think.png',alt:'托腮思考的奶娃',caption:'让我想想。'},
- speechless:{file:'meme-speechless.png',alt:'一时无语的奶娃',caption:'一时无言。'},
- angry:{file:'meme-angry.png',alt:'抱着手生闷气的奶娃',caption:'奶娃有点火大。'},
- serious:{file:'meme-serious.png',alt:'一脸严肃的奶娃',caption:'认真模式。'},
- surprised:{file:'meme-surprised.png',alt:'惊讶回头的奶娃',caption:'啊？'},
- wave:{file:'meme-wave.png',alt:'抬手打招呼的奶娃',caption:'收到，安排。'}
+ original:{file:'frog.png',alt:'今日份奶蛙',caption:'日子继续。',original:true},
+ 'original-wave':{file:'frog-wave.png',alt:'原来的挥手奶蛙',caption:'奶蛙还在。',original:true},
+ blue:{file:'meme-blue.png',alt:'切换忧郁模式的奶蛙',caption:'先缓一缓。'},
+ laugh:{file:'meme-laugh.png',alt:'仰头大笑的奶蛙',caption:'这下舒服了。'},
+ shy:{file:'meme-shy.png',alt:'有点害羞又开心的奶蛙',caption:'有点不好意思。'},
+ think:{file:'meme-think.png',alt:'托腮思考的奶蛙',caption:'让我想想。'},
+ speechless:{file:'meme-speechless.png',alt:'一时无语的奶蛙',caption:'一时无言。'},
+ angry:{file:'meme-angry.png',alt:'抱着手生闷气的奶蛙',caption:'奶蛙有点火大。'},
+ serious:{file:'meme-serious.png',alt:'一脸严肃的奶蛙',caption:'认真模式。'},
+ surprised:{file:'meme-surprised.png',alt:'惊讶回头的奶蛙',caption:'啊？'},
+ wave:{file:'meme-wave.png',alt:'抬手打招呼的奶蛙',caption:'收到，安排。'}
 };
 const get=id=>({id,...expressions[id]});
 function scene(s,event){
@@ -46,7 +46,7 @@ function scene(s,event){
 }
 const endingMap={
  'lottery-winner':'laugh',chaos:'laugh',poor:'blue',tired:'speechless',skip:'surprised',hero:'serious',popular:'original-wave',scholar:'serious',rich:'laugh',lucky:'surprised',battery:'laugh',balanced:'original',ordinary:'original',cat:'shy',viral:'laugh',artist:'shy',week:'original-wave',
- 'fail-energy':'speechless','fail-study':'speechless','fail-health':'blue','fail-mood':'blue','fail-course':'serious',
+ 'fail-energy':'speechless','fail-study':'speechless','fail-health':'blue','fail-mood':'blue','fail-course':'serious','fail-mouse-family':'surprised',
  athlete:'shy',trader:'think',worker:'serious',informant:'think',gardener:'shy',inventor:'think','meal-pal':'original-wave',helper:'wave',library:'think',freshman:'original-wave',degree:'serious',honor:'laugh',
  'hidden-cat-advisor':'shy','hidden-broke-chaos':'laugh','hidden-early-miracle':'surprised','hard-balanced-fortnight':'laugh','hard-library-maker':'think','hard-perfect-month':'laugh',
  'course-pass':'laugh','course-clutch':'speechless','course-streak':'serious','love-ending':'shy','steady-life':'laugh','quiet-break':'speechless',recovery:'shy'

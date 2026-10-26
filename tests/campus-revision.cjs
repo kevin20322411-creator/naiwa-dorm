@@ -1,0 +1,22 @@
+const assert=require('node:assert/strict'),G=require('../dist/campus-revision.js'),B=require('../dist/lottery.js');
+const clone=x=>JSON.parse(JSON.stringify(x));
+function fixtures(){const legacy=require('./wellness.cjs').fixtures(),mouse=G.enableCampusRevision(B.enableLottery(B.enableEvolution(B.enableCampus(legacy.mouseStudy))));let bitten,hidden;
+ // Obtain replay-valid fixtures by selecting real encounters from the released engine.
+ const T=require('./evolution.cjs');for(let seed=0;seed<50&&(!bitten||!hidden);seed++){const r=T.run(seed,20);if(r.samples.bitten&&!bitten)bitten=G.enableCampusRevision(B.enableLottery(r.samples.bitten));if(r.samples.mouse){const m=G.enableCampusRevision(B.enableLottery(r.samples.mouse)),n=G.choose(m,4);if(n.failed==='fail-mouse-family')hidden=n;}}
+ return{mouse,bitten,hidden};
+}
+function checks(){const initial=G.create(0,['brain','toolkit'],'');assert.equal(initial.name,'奶蛙同学');assert(G.valid(initial));assert(!JSON.stringify(G.endings).includes('奶娃'));assert(!JSON.stringify(G.traits).includes('奶娃'));
+ let corrected=0;for(let seed=0;seed<40;seed++){const s=G.create(seed,['brain','toolkit'],'奶蛙'),old=B.getScene(s),scene=G.getScene(s);for(let i=0;i<scene.choices.length;i++){assert((scene.choices[i].mods.study||0)>=0,'三餐不扣学业');if((old.choices[i].mods.study||0)<0){const n=G.choose(s,i);assert.equal(n.stats.study,s.stats.study);assert(!n.failed);assert(G.valid(n));assert(!/多补|学习时间|课上的进度/.test(n.outcome.result));corrected++;}}}assert(corrected>0);
+ const f=fixtures();assert(G.valid(f.mouse));assert.equal(G.getScene(f.mouse).choices.length,5);assert.equal(G.getScene(f.mouse).choices[4].annoyMouse,true);let killed=0,bites=0;
+ for(let seed=0;seed<20000;seed++){const s={...f.mouse,seed},n=G.choose(s,4);killed+=n.failed==='fail-mouse-family';if(seed<3000){for(const i of [0,1,2,3])assert.notEqual(G.choose(s,i).failed,'fail-mouse-family');}if(n.evolution.bite){bites++;assert.equal(n.evolution.bite.due,n.evolution.bite.day+4);assert(!/最迟|第 \d+ 天|逾期|长眠/.test(n.outcome.result));}}
+ assert(killed>300&&killed<500);assert(bites>3000&&bites<5000);
+ assert(f.bitten&&G.valid(f.bitten));assert.equal(f.bitten.evolution.bite.due,f.bitten.evolution.bite.day+4);const bite=f.bitten.evolution.bite;
+ const afterThree={...f.bitten,day:bite.day+3,step:7};assert.notEqual(G.next(afterThree).phase,'ending');const finalDay={...f.bitten,day:bite.day+4,step:7};assert.equal(G.next(finalDay).phase,'ending');assert.equal(G.next(finalDay).failed,'fail-health');
+ const booked=G.choose(G.startActivity({...f.bitten,phase:'dayEnd'},'vaccine'),f.bitten.stats.money>=18?0:1);assert(booked.evolution.bite.appointment);assert.equal(G.continueDay(booked).evolution.bite,null);const v=G.startActivity(f.bitten,'vaccine');assert(G.valid(v));const done=G.choose(v,v.stats.money>=18?0:1);assert.equal(done.evolution.bite,null);assert(G.valid(done));assert(G.valid(G.next(done)));
+ const base={...G.choose(initial,0),romance:{...initial.romance,connected:true,intimacy:91,dating:false}};let declarations=0;
+ for(let seed=0;seed<10000;seed++){const s={...base,seed},n=G.next(s);if(n.eventId==='love-naifen-confession'){declarations++;const yes=G.choose(n,0),no=G.choose(n,1);assert(yes.romance.dating&&yes.romance.earned);assert(!no.romance.connected&&no.romance.intimacy===0);assert(no.outcome.contactDeleted);assert.equal(G.next(no).romance.connected,false);assert.equal(G.availableActivities(yes).length,0);assert.throws(()=>G.startActivity(yes,'rest'));}}
+ assert(declarations>2800&&declarations<3200);assert.notEqual(G.next({...base,romance:{...base.romance,intimacy:90}}).eventId,'love-naifen-confession');assert.notEqual(G.next({...base,campusRevision:{...base.campusRevision,confessDay:base.day}}).eventId,'love-naifen-confession');assert.notEqual(G.next({...base,romance:{...base.romance,dating:true,earnedDay:base.day}}).eventId,'love-naifen-confession');
+ const old=B.choose(B.create(9,['brain','toolkit'],'旧奶娃'),0);assert.deepEqual(G.restore(old),old);const upgrade=G.enableCampusRevision(old);assert(G.valid(upgrade));assert.deepEqual(upgrade.stats,old.stats);assert.deepEqual(upgrade.log,old.log);assert(!JSON.stringify(G.getScene(upgrade)).includes('奶娃'));assert.equal(G.restore({...upgrade,stats:{...upgrade.stats,study:0}}),null);
+ console.log(JSON.stringify({passed:true,freeMeals:corrected,mouseFamilyRate:killed/20000,annoyBiteRate:bites/20000,naifenConfessionRate:declarations/10000,fiveDays:true,oldSaves:true}));return f;
+}
+if(require.main===module)checks();module.exports={fixtures,checks};
