@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const G=window.DormGame,E=window.DormExpressions,app=document.querySelector('#app'),saveKey='naiwa-dorm-run-v2',bookKey='naiwa-dorm-endings-v1';
-const RELEASE={version:'6.15',date:'2026.10.27',items:['丰富奶粉的偏好与日常约定','增加关系沟通与补救经历','新增可解锁的入学背景','支持分享同一起点']};
+const RELEASE={version:'7.1',date:'2026.10.27',items:['丰富奶粉的偏好与日常约定','增加关系沟通与补救经历','新增可解锁的入学背景','支持分享同一起点']};
 const read=(k,fallback)=>{try{return JSON.parse(localStorage.getItem(k))??fallback;}catch{return fallback;}};
 const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch{return false;}};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
