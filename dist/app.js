@@ -5,7 +5,7 @@ const RELEASE={version:'7.1',date:'2026.10.27',items:['丰富奶粉的偏好与�
 const read=(k,fallback)=>{try{return JSON.parse(localStorage.getItem(k))??fallback;}catch{return fallback;}};
 const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch{return false;}};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const narrative=s=>String(s).replaceAll('奶娃','奶蛙').replace(/最迟第 \d+ 天结束前，需要去医院处理并打疫苗；逾期会触发“奶蛙长眠”。/g,'需要及时去医院处理咬伤并接种疫苗。').replaceAll('奶粉',state?.romance?.dating?'你的宝宝':'奶粉').replaceAll('一只粉色的奶蛙','奶粉').replaceAll('粉色的奶蛙','奶粉').replaceAll('旁边有人喊了一声“奶粉”。','');
+const narrative=s=>String(s).replaceAll('奶娃','奶蛙').replace(/今天她有些疲惫，想把节奏放慢一点。|今天她忙着赶任务，想先把手头的事做好。|今天她有件开心的小事，想找人分享。/g,'').replaceAll('这次，是奶蛙先发来的消息。','奶蛙给奶粉发了条消息。').replace(/不用等(?:奶粉|你的宝宝)来找你。可以分享一件小事，也可以认真问问对方今天怎么样。/g,'聊点什么呢？').replace(/(?:奶粉|你的宝宝)等了一会儿，最后把聊天窗口收了起来。/g,'奶粉等了一会儿，以为你正在忙，便先收起了聊天窗口。').replace(/最迟第 \d+ 天结束前，需要去医院处理并打疫苗；逾期会触发“奶蛙长眠”。/g,'需要及时去医院处理咬伤并接种疫苗。').replaceAll('奶粉',state?.romance?.dating?'你的宝宝':'奶粉').replaceAll('一只粉色的奶蛙','奶粉').replaceAll('粉色的奶蛙','奶粉').replaceAll('旁边有人喊了一声“奶粉”。','').trim();
 let state=G.restore(read(saveKey,null));
 let draftSeed=Date.now()>>>0,draftBatchSeed=draftSeed,offered=G.newDraft(draftSeed),selected=[],draftName='',draftBackground='freshman',draftSharedBackground=null,sound=read('naiwa-dorm-sound',true)===true,view='home',toastTimer;
 let seen=read(bookKey,[]);if(!Array.isArray(seen))seen=[];seen=[...new Set(seen.filter(id=>G.endings.some(e=>e.id===id)))];
@@ -81,7 +81,7 @@ function taskHTML(){
 function romanceHTML(){
  const r=state.romance;if(!r?.connected)return '';
  const bond=G.relationshipStatus(state),known=bond?[bond.knownActivity&&'喜欢'+bond.knownActivity,bond.knownTaste&&'口味偏好：'+bond.knownTaste].filter(Boolean):[],promise=bond?.promise;
- const note=bond?'<div class="relationship-note">'+(bond.todayHint?'<p>'+esc(bond.todayHint)+'</p>':'')+(known.length?'<p class="relationship-known">'+known.map(esc).join(' · ')+'</p>':'')+(promise?'<p class="relationship-promise">约好：'+esc(promise.label)+'<span>第 '+promise.earliestDay+(promise.dueDay!==promise.earliestDay?'—'+promise.dueDay:'')+' 天</span></p>':'')+'</div>':'';
+ const note=bond&&(known.length||promise)?'<div class="relationship-note">'+(known.length?'<p class="relationship-known">'+known.map(esc).join(' · ')+'</p>':'')+(promise?'<p class="relationship-promise">约好：'+esc(promise.label)+'<span>第 '+promise.earliestDay+(promise.dueDay!==promise.earliestDay?'—'+promise.dueDay:'')+' 天</span></p>':'')+'</div>':'';
  return '<section class="romance-card" aria-label="与奶粉的亲密度"><div class="romance-person"><img class="naiwa-pink" src="'+asset('frog-wave.png')+'" alt="奶粉"><div><strong>'+(r.dating?'你的宝宝':'奶粉')+'</strong><span>'+ (r.dating?'恋人':r.intimacy>=80?'心意渐明':'慢慢认识')+'</span></div><b>亲密度 '+r.intimacy+' <small>/ 100</small></b></div><div class="romance-meter" role="progressbar" aria-label="亲密度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+r.intimacy+'"><i style="width:'+r.intimacy+'%"></i></div>'+note+'</section>';
 }
 function collectRomanceAwards(){
@@ -90,7 +90,7 @@ function collectRomanceAwards(){
  seen.push(...unlocked.map(e=>e.id));write(bookKey,seen);updateBook();showUnlocks(unlocked);speak('award');
 }
 function choiceText(c){
- const price=Math.max(0,-(c.mods.money||0));return c.text+(price&&!c.text.includes('¥')?' · ¥'+price:'')+(c.minutes?' · '+c.minutes+' 分钟':'');
+ const text=state?.eventId==='love-active-ask-chat'?c.text.replace('只发一句“在吗”，收到回复又不接话','聊到一半刷起手机，迟迟没有回复'):c.text;const price=Math.max(0,-(c.mods.money||0));return text+(price&&!text.includes('¥')?' · ¥'+price:'')+(c.minutes?' · '+c.minutes+' 分钟':'');
 }
 function choiceNotice(c){
  if(c.disabledReason)return '<i class="danger">'+esc(c.disabledReason)+'</i>';
@@ -123,7 +123,7 @@ function gameView(){
  clearCard();
  view='game';
  if(!state){home();return;}
- const characterUpgrade=G.enableCharacter(G.enableCampusRevision(G.enableLottery(G.enableEvolution(G.enableCampus(G.enableWellness(G.enableMeetings(G.enableIllness(G.enableFood(G.enableRhythm(G.enableStory(G.enableRomance(G.enableBalance(G.enableCare(G.enableLife(state)))))))))))))));const upgraded=G.enableJourneys(G.enableRelationships(G.enableSocialUpdate(G.enableDining(characterUpgrade))));if(upgraded!==state){state=upgraded;persist();}
+ const characterUpgrade=G.enableCharacter(G.enableCampusRevision(G.enableLottery(G.enableEvolution(G.enableCampus(G.enableWellness(G.enableMeetings(G.enableIllness(G.enableFood(G.enableRhythm(G.enableStory(G.enableRomance(G.enableBalance(G.enableCare(G.enableLife(state)))))))))))))));const upgraded=G.enableAudit(G.enableJourneys(G.enableRelationships(G.enableSocialUpdate(G.enableDining(characterUpgrade)))));if(upgraded!==state){state=upgraded;persist();}
  if(state.phase==='ending'||state.phase==='dayEnd'){endingView();return;}
  const renderedState=state,scene=G.getScene(state),expression=E.scene(state,scene);
  if(!seenEvents.includes(scene.id)){seenEvents.push(scene.id);write('naiwa-dorm-events-v2',seenEvents);}
