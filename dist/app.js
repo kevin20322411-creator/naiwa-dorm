@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const G=window.DormGame,E=window.DormExpressions,W=window.DormWorld,M=window.DormCampus,C=window.DormCanteen,app=document.querySelector('#app'),saveKey='naiwa-dorm-run-v2',bookKey='naiwa-dorm-endings-v1';
-const RELEASE={version:'8.2',date:'2026.10.28',items:['食堂新增多种档口与校外餐馆','加入饱食度与饥饿反馈','校园探索目标与地点解锁','细化校园景观与地图表现']};
+const RELEASE={version:'8.3',date:'2026.10.28',items:['天赐庄校园探索新增多个地点','加入实验室进组与研究日常','跑步、篮球与羽毛球活动','奶粉喜好手账与食物配图更新']};
 const read=(k,fallback)=>{try{return JSON.parse(localStorage.getItem(k))??fallback;}catch{return fallback;}};
 const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch{return false;}};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -81,8 +81,8 @@ function taskHTML(){
 }
 function romanceHTML(){
  const r=state.romance;if(!r?.connected)return '';
- const bond=G.relationshipStatus(state),known=bond?[bond.knownActivity&&'喜欢'+bond.knownActivity,bond.knownTaste&&'口味偏好：'+bond.knownTaste].filter(Boolean):[],promise=bond?.promise;
- const note=bond&&(known.length||promise)?'<div class="relationship-note">'+(known.length?'<p class="relationship-known">'+known.map(esc).join(' · ')+'</p>':'')+(promise?'<p class="relationship-promise">约好：'+esc(promise.label)+'<span>第 '+promise.earliestDay+(promise.dueDay!==promise.earliestDay?'—'+promise.dueDay:'')+' 天</span></p>':'')+'</div>':'';
+ const bond=G.relationshipStatus(state),known=G.preferenceNotes(state),promise=bond?.promise;
+ const note=bond&&(known.length||promise)?'<div class="relationship-note">'+(known.length?'<p class="preference-diary">喜好手账</p><p class="relationship-known">'+known.map(esc).join(' · ')+'</p>':'')+(promise?'<p class="relationship-promise">约好：'+esc(promise.label)+'<span>第 '+promise.earliestDay+(promise.dueDay!==promise.earliestDay?'—'+promise.dueDay:'')+' 天</span></p>':'')+'</div>':'';
  return '<section class="romance-card" aria-label="与奶粉的亲密度"><div class="romance-person"><img class="naiwa-pink" src="'+asset('frog-wave.png')+'" alt="奶粉"><div><strong>'+(r.dating?'你的宝宝':'奶粉')+'</strong><span>'+ (r.dating?'恋人':r.intimacy>=80?'心意渐明':'慢慢认识')+'</span></div><b>亲密度 '+r.intimacy+' <small>/ 100</small></b></div><div class="romance-meter" role="progressbar" aria-label="亲密度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+r.intimacy+'"><i style="width:'+r.intimacy+'%"></i></div>'+note+'</section>';
 }
 function collectRomanceAwards(){
@@ -113,11 +113,11 @@ function careHTML(){
 function bindExtraCare(renderedState){document.querySelectorAll('[data-care]').forEach(b=>b.onclick=()=>{if(state!==renderedState)return;try{state=G.startActivity(state,b.dataset.care);persist();gameView();goTop();}catch{toast('可以换个空闲时段，或在今日结算预约。');}});}
 function bindClinic(renderedState){const button=document.querySelector('#clinic-btn');if(button)button.onclick=()=>{if(!['game','ending'].includes(view)||state!==renderedState)return;try{state=G.startActivity(state,'clinic');persist();gameView();goTop();}catch{toast('可以换个空闲时段，或在今日结算预约明早校医。');}};}
 function sceneProgress(){
- return state.rhythm?'第 '+(state.log.filter(e=>e.day===state.day&&(e.step>=0||e.origin==='relationship'||e.origin==='journey'||['clinic-visit','evo-vaccine','evo-psych','evo-breakup','love-naifen-confession'].includes(e.eventId))).length+(state.phase==='choice'?1:0))+' 件事':(state.step+1)+' / 8';
+ return state.rhythm?'第 '+(state.log.filter(e=>e.day===state.day&&(e.step>=0||e.campusActivity||e.origin==='relationship'||e.origin==='journey'||['clinic-visit','evo-vaccine','evo-psych','evo-breakup','love-naifen-confession'].includes(e.eventId))).length+(state.phase==='choice'?1:0))+' 件事':(state.step+1)+' / 8';
 }
 function freeTimeHTML(){
  const list=G.availableActivities?.(state)||[];if(!list.length)return '';
- const buttons=partner=>list.filter(a=>a.partner===partner).map(a=>'<button class="activity-button" data-activity="'+a.id+'">'+esc(a.label)+'</button>').join('');
+ const buttons=partner=>list.filter(a=>a.partner===partner).map(a=>'<button class="activity-button" data-activity="'+a.id+'" '+(a.disabledReason?'disabled':'')+'>'+esc(a.label)+(a.disabledReason?'<small>'+esc(a.disabledReason)+'</small>':'')+'</button>').join('');
  return '<button class="campus-shortcut" id="campus-shortcut"><span aria-hidden="true">↗</span><span><strong>去校园逛逛</strong><small>选一站，安排接下来的时间</small></span><b aria-hidden="true">›</b></button><details class="free-time"><summary><strong>自由安排</strong><span>还有 '+G.freeMinutes(state)+' 分钟</span></summary><div class="free-time-content"><p>自己安排</p><div class="activity-grid">'+buttons(false)+'</div>'+(list.some(a=>a.partner)?'<p>和'+(state.romance?.dating?'你的宝宝':'奶粉')+'一起</p><div class="activity-grid">'+buttons(true)+'</div>':'')+'</div></details>';
 }
 
@@ -129,7 +129,7 @@ function mapView(){
  app.innerHTML='<div class="game-layout map-game-layout">'+statusPanelHTML()+'<section class="game-main campus-main"><div class="mobile-stats" style="--stat-count:'+G.statKeys(state.stats).length+'">'+statHTML(state.stats)+'</div>'+hungerHTML()+M.render(state,model,selected,{asset,esc})+'</section></div>';
  const current=()=>view==='map'&&state===renderedState&&renderEpoch===epoch;
  document.querySelector('#pause-run').onclick=()=>{if(current()){home();goTop();}};
- document.querySelectorAll('[data-place]').forEach(b=>b.onclick=()=>{if(!current())return;campusPlace=b.dataset.place;mapView();});
+ document.querySelectorAll('[data-place]').forEach(b=>b.onclick=()=>{if(!current())return;campusPlace=b.dataset.place;mapView();if(window.innerWidth<=600)document.querySelector('.campus-destination')?.scrollIntoView({block:'start',behavior:'smooth'});});
  document.querySelectorAll('[data-map-activity]').forEach(b=>b.onclick=()=>{if(!current()||b.disabled)return;try{state=W.startActivity(state,selected,b.dataset.mapActivity);persist();gameView();goTop();}catch{toast('这段空闲暂时安排不了，换一站看看。');}});
  document.querySelectorAll('[data-map-scene]').forEach(b=>b.onclick=()=>{if(current()){gameView();goTop();}});
  const back=document.querySelector('#campus-return');if(back)back.onclick=()=>{if(current()){gameView();goTop();}};
@@ -140,7 +140,7 @@ function gameView(){
  renderEpoch++;clearCard();
  view='game';
  if(!state){home();return;}
- const characterUpgrade=G.enableCharacter(G.enableCampusRevision(G.enableLottery(G.enableEvolution(G.enableCampus(G.enableWellness(G.enableMeetings(G.enableIllness(G.enableFood(G.enableRhythm(G.enableStory(G.enableRomance(G.enableBalance(G.enableCare(G.enableLife(state)))))))))))))));const upgraded=G.enableNutrition(G.enableAudit(G.enableJourneys(G.enableRelationships(G.enableSocialUpdate(G.enableDining(characterUpgrade))))));if(upgraded!==state){state=upgraded;persist();}
+ const characterUpgrade=G.enableCharacter(G.enableCampusRevision(G.enableLottery(G.enableEvolution(G.enableCampus(G.enableWellness(G.enableMeetings(G.enableIllness(G.enableFood(G.enableRhythm(G.enableStory(G.enableRomance(G.enableBalance(G.enableCare(G.enableLife(state)))))))))))))));const upgraded=G.enableExpansion(G.enableNutrition(G.enableAudit(G.enableJourneys(G.enableRelationships(G.enableSocialUpdate(G.enableDining(characterUpgrade)))))));if(upgraded!==state){state=upgraded;persist();}
  if(state.phase==='ending'||state.phase==='dayEnd'){endingView();return;}
  const renderedState=state,renderedEpoch=renderEpoch,scene=G.getScene(state),expression=E.scene(state,scene);
  if(!seenEvents.includes(scene.id)){seenEvents.push(scene.id);write('naiwa-dorm-events-v2',seenEvents);}

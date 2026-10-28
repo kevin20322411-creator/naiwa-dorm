@@ -15,3 +15,8 @@
 .campus-main .campus-page{padding:8px 0 32px}
 
 .campus-goals{padding:16px 18px;margin:0 0 18px;border:1px solid #e5e8da;background:#fafbf5;border-radius:18px}.campus-goals strong{display:flex;justify-content:space-between;font-size:13px;font-weight:600}.campus-goals small{font-size:11px;font-weight:400;color:#8b927b}.campus-goals>div{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:12px}.campus-goals span{font-size:11px;color:#969c89}.campus-goals span.done{color:#557547}.campus-place.is-locked .campus-building{filter:grayscale(.7);opacity:.55}.campus-place.is-locked .campus-place-name{font-size:9px;color:#8c8d80}.campus-landscape{background-image:radial-gradient(#fff3 1px,transparent 1px);background-size:8px 8px}
+
+/* A north-to-south route map; locations are simplified for play. */
+.campus-map{aspect-ratio:640/980;min-height:700px}.campus-place{width:25%;max-width:125px;min-height:74px}.campus-building{max-width:85px}.campus-place-name{font-size:11px}.campus-player{width:30px;height:36px;right:-2px}.campus-here{right:-4px}.campus-destination{position:sticky;top:20px}
+.preference-diary{margin:12px 0 0;font-size:11px;color:#94778b;font-weight:600}.relationship-known{line-height:1.8}
+@media(max-width:600px){.campus-map{aspect-ratio:640/980;min-height:550px}.campus-place{width:27%;min-height:62px;max-width:104px}.campus-building{max-width:64px}.campus-place-name{font-size:9px;padding:3px 5px}.campus-player{width:23px;height:28px}.campus-here{font-size:7px}.campus-destination{position:static}}

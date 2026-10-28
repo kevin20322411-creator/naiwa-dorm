@@ -12,6 +12,9 @@ const steam='<g fill="none" stroke="#d0c4ac" stroke-width="3" stroke-linecap="ro
 const plate=()=>ellipse(120,141,87,13,'#d8cdb5','opacity=".35"')+ellipse(120,101,93,56,'#fffdf6','stroke="#d9d2c0" stroke-width="2"')+ellipse(120,101,78,44,'#f3eee1','stroke="#e8e1d0" stroke-width="2"');
 const grains=(x,y)=>'<g stroke="#e0d6bd" stroke-width="2" stroke-linecap="round"><path d="M'+(x-18)+' '+y+'l5-3m7 12l5-2m-1-19l5 2m-28 22l5 2m22-6l5-2m-3-17l5 2"/></g>';
 function foodArt(name){
+ const patterns=[/双皮奶/,/芋泥|酸奶碗/,/抹茶.*蛋糕/,/松饼/,/面|米线|乌冬/,/炒饭/,/鸡.*饭|牛.*饭|盖饭|拌饭|鸡腿/,/三明治|吐司|贝果/,/小笼|包子|青菜包/,/饺子|馄饨|云吞/,/火锅|寿喜锅|椰子鸡/,/汉堡|炸鸡|薯条/,/燕麦|粥/,/玉米/,/红薯/,/豆浆/];
+ const tile=patterns.findIndex(p=>p.test(name));if(tile>=0){const file=root.DormAssets?.['food-atlas-v2.jpg']||'./assets/food-atlas-v2.jpg';return '<span class="canteen-food-photo" aria-hidden="true" style="background-image:url(&quot;'+escape(file)+'&quot;);background-position:'+((tile%4)*100/3)+'% '+(Math.floor(tile/4)*100/3)+'%"></span>';}
+
  const kind=foodKind(name);let art='';
  if(kind==='rice')art=plate()+ellipse(91,102,38,31,'#fffdf0')+grains(91,102)+leaf(154,111,-25)+leaf(174,96,30)+'<path d="M128 76q9-15 24-4l15 16q4 10-11 17l-21-2q-13-9-7-27Z" fill="#be7b46"/><path d="M136 80l17 12m-22-2l18 12" stroke="#8f5637" stroke-width="3" stroke-linecap="round"/>'+egg(90,91);
  if(kind==='noodle')art=steam+ellipse(120,142,73,10,'#d8cdb5','opacity=".35"')+'<path d="M41 92q4 56 79 56t79-56Z" fill="#dce4d0" stroke="#9aab86" stroke-width="2"/>'+ellipse(120,91,79,32,'#f7efcc','stroke="#9aab86" stroke-width="2"')+'<g fill="none" stroke="#dfb961" stroke-width="4" stroke-linecap="round"><path d="M67 92q13-18 22 2t23-1 23 2 25-3m-93 10q12-17 22 1t24-1 23 2 22-4m-78-19q10-12 18 1t20-1 22 0"/></g>'+leaf(157,84,15)+egg(105,79)+'<path d="M171 42l24 49m-13-50l23 49" stroke="#8b684d" stroke-width="5" stroke-linecap="round"/>';
