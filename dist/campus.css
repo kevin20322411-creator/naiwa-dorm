@@ -13,3 +13,5 @@
    its minimum height from inflating its width through the preferred aspect ratio. */
 .campus-map{width:100%;min-width:0}
 .campus-main .campus-page{padding:8px 0 32px}
+
+.campus-goals{padding:16px 18px;margin:0 0 18px;border:1px solid #e5e8da;background:#fafbf5;border-radius:18px}.campus-goals strong{display:flex;justify-content:space-between;font-size:13px;font-weight:600}.campus-goals small{font-size:11px;font-weight:400;color:#8b927b}.campus-goals>div{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:12px}.campus-goals span{font-size:11px;color:#969c89}.campus-goals span.done{color:#557547}.campus-place.is-locked .campus-building{filter:grayscale(.7);opacity:.55}.campus-place.is-locked .campus-place-name{font-size:9px;color:#8c8d80}.campus-landscape{background-image:radial-gradient(#fff3 1px,transparent 1px);background-size:8px 8px}

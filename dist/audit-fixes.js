@@ -2,6 +2,7 @@
 'use strict';
 // Keep every published rule layer intact so prior actions replay exactly.
 const browser=typeof module==='undefined'||!module.exports,B=browser?root.DormGame:require('./journeys.js');
+root.DormPublishedJourneys=B;
 const delta=(a,b)=>Object.fromEntries(B.keys.filter(k=>Number.isFinite(a[k])&&a[k]!==b[k]).map(k=>[k,b[k]-a[k]]));
 function failure(s){const v=s.stats;return Number.isFinite(v.health)&&v.health<=0?'fail-health':Number.isFinite(v.mood)&&v.mood<=0?'fail-mood':v.energy<=0?'fail-energy':v.study<=0?'fail-study':s.term?.missed>=2?'fail-course':null;}
 function addFlags(flags,entries){const next={...flags};for(const entry of entries)for(const [key,value] of Object.entries(entry.flags||{}))next[key]=(next[key]||0)+value;return next;}

@@ -1,12 +1,12 @@
 (()=>{
 'use strict';
 const G=window.DormGame,E=window.DormExpressions,W=window.DormWorld,M=window.DormCampus,C=window.DormCanteen,app=document.querySelector('#app'),saveKey='naiwa-dorm-run-v2',bookKey='naiwa-dorm-endings-v1';
-const RELEASE={version:'8.1',date:'2026.10.28',items:['加入天赐庄风格校园地图','增加可视化食堂点餐','可以从地点安排日常活动','优化手机页面与场景衔接']};
+const RELEASE={version:'8.2',date:'2026.10.28',items:['食堂新增多种档口与校外餐馆','加入饱食度与饥饿反馈','校园探索目标与地点解锁','细化校园景观与地图表现']};
 const read=(k,fallback)=>{try{return JSON.parse(localStorage.getItem(k))??fallback;}catch{return fallback;}};
 const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch{return false;}};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const narrative=s=>String(s).replaceAll('奶娃','奶蛙').replace(/今天她有些疲惫，想把节奏放慢一点。|今天她忙着赶任务，想先把手头的事做好。|今天她有件开心的小事，想找人分享。/g,'').replaceAll('这次，是奶蛙先发来的消息。','奶蛙给奶粉发了条消息。').replace(/不用等(?:奶粉|你的宝宝)来找你。可以分享一件小事，也可以认真问问对方今天怎么样。/g,'聊点什么呢？').replace(/(?:奶粉|你的宝宝)等了一会儿，最后把聊天窗口收了起来。/g,'奶粉等了一会儿，以为你正在忙，便先收起了聊天窗口。').replace(/最迟第 \d+ 天结束前，需要去医院处理并打疫苗；逾期会触发“奶蛙长眠”。/g,'需要及时去医院处理咬伤并接种疫苗。').replaceAll('奶粉',state?.romance?.dating?'你的宝宝':'奶粉').replaceAll('一只粉色的奶蛙','奶粉').replaceAll('粉色的奶蛙','奶粉').replaceAll('旁边有人喊了一声“奶粉”。','').trim();
-let state=G.restore(read(saveKey,null)),renderEpoch=0,campusPlace=null;
+let state=G.restore(read(saveKey,null)),renderEpoch=0,campusPlace=null,mealStall='today';
 let draftSeed=Date.now()>>>0,draftBatchSeed=draftSeed,offered=G.newDraft(draftSeed),selected=[],draftName='',draftBackground='freshman',draftSharedBackground=null,sound=read('naiwa-dorm-sound',true)===true,view='home',toastTimer;
 let seen=read(bookKey,[]);if(!Array.isArray(seen))seen=[];seen=[...new Set(seen.filter(id=>G.endings.some(e=>e.id===id)))];
 function readSharedStart(){try{const p=new URLSearchParams((window.location?.search||'').replace(/\\&/g,'&')),seed=p.get('seed'),bg=p.get('bg'),ids=p.get('traits')?.split(',');if(!/^\d{1,10}$/.test(seed||'')||Number(seed)>4294967295||!G.backgrounds.some(b=>b.id===bg)||!ids||ids.length!==3||new Set(ids).size!==3||ids.some(id=>!G.traits.some(t=>t.id===id)))return null;return{seed:Number(seed),backgroundId:bg,traits:ids};}catch{return null;}}
@@ -38,6 +38,7 @@ function showRelease(){
  if(!modal.open)modal.showModal();
 }
 function dismissRelease(){write('naiwa-dorm-release-hidden',document.querySelector('#release-skip').checked?RELEASE.version:null);document.querySelector('#release-modal').close();}
+function hungerHTML(){const v=G.fullness?.(state);return v===null||v===undefined?'':'<section class="satiety-card" aria-label="饱食度"><span>饱食度</span><div class="satiety-track" role="progressbar" aria-label="饱食度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.round(v)+'"><i style="width:'+v+'%;background:'+(v<20?'#cb8a60':'#99ad74')+'"></i></div><b>'+Math.round(v)+'</b></section>'; }
 function statHTML(s){return G.statKeys(s).map(k=>`<div class="stat ${s[k]<(k==='money'?8:20)?'warning':''}"><div class="stat-head"><span>${G.labels[k]}</span><b>${k==='money'?'¥':''}${s[k]}</b></div><div class="stat-track"><i style="width:${Math.min(100,s[k])}%"></i></div></div>`).join('');}
 function startDraft(useShared=false){const shared=useShared&&sharedStart&&!sharedStartUsed?sharedStart:null;selected=shared?[...shared.traits]:[];draftSeed=shared?shared.seed:Date.now()>>>0;draftBatchSeed=draftSeed;offered=G.newDraft(draftBatchSeed,selected);draftName=state?.name||'';draftBackground=shared?.backgroundId||'freshman';draftSharedBackground=shared?.backgroundId||null;traitsView();goTop();}
 function canShareStart(s){return s&&G.selectedTraits(s).length===3;}
@@ -125,7 +126,7 @@ function normalSceneHTML(scene,expression,callback){return `<div class="scene-ar
 function mapView(){
  clearCard();if(!state||['ending','dayEnd'].includes(state.phase)){gameView();return;}
  renderEpoch++;view='map';const renderedState=state,epoch=renderEpoch,model=W.model(state);if(!model.places.some(p=>p.id===campusPlace))campusPlace=model.currentId;const selected=campusPlace;
- app.innerHTML='<div class="game-layout map-game-layout">'+statusPanelHTML()+'<section class="game-main campus-main"><div class="mobile-stats" style="--stat-count:'+G.statKeys(state.stats).length+'">'+statHTML(state.stats)+'</div>'+M.render(state,model,selected,{asset,esc})+'</section></div>';
+ app.innerHTML='<div class="game-layout map-game-layout">'+statusPanelHTML()+'<section class="game-main campus-main"><div class="mobile-stats" style="--stat-count:'+G.statKeys(state.stats).length+'">'+statHTML(state.stats)+'</div>'+hungerHTML()+M.render(state,model,selected,{asset,esc})+'</section></div>';
  const current=()=>view==='map'&&state===renderedState&&renderEpoch===epoch;
  document.querySelector('#pause-run').onclick=()=>{if(current()){home();goTop();}};
  document.querySelectorAll('[data-place]').forEach(b=>b.onclick=()=>{if(!current())return;campusPlace=b.dataset.place;mapView();});
@@ -139,19 +140,20 @@ function gameView(){
  renderEpoch++;clearCard();
  view='game';
  if(!state){home();return;}
- const characterUpgrade=G.enableCharacter(G.enableCampusRevision(G.enableLottery(G.enableEvolution(G.enableCampus(G.enableWellness(G.enableMeetings(G.enableIllness(G.enableFood(G.enableRhythm(G.enableStory(G.enableRomance(G.enableBalance(G.enableCare(G.enableLife(state)))))))))))))));const upgraded=G.enableAudit(G.enableJourneys(G.enableRelationships(G.enableSocialUpdate(G.enableDining(characterUpgrade)))));if(upgraded!==state){state=upgraded;persist();}
+ const characterUpgrade=G.enableCharacter(G.enableCampusRevision(G.enableLottery(G.enableEvolution(G.enableCampus(G.enableWellness(G.enableMeetings(G.enableIllness(G.enableFood(G.enableRhythm(G.enableStory(G.enableRomance(G.enableBalance(G.enableCare(G.enableLife(state)))))))))))))));const upgraded=G.enableNutrition(G.enableAudit(G.enableJourneys(G.enableRelationships(G.enableSocialUpdate(G.enableDining(characterUpgrade))))));if(upgraded!==state){state=upgraded;persist();}
  if(state.phase==='ending'||state.phase==='dayEnd'){endingView();return;}
  const renderedState=state,renderedEpoch=renderEpoch,scene=G.getScene(state),expression=E.scene(state,scene);
  if(!seenEvents.includes(scene.id)){seenEvents.push(scene.id);write('naiwa-dorm-events-v2',seenEvents);}
  recent=recent.filter(id=>id!==scene.id).concat(scene.id).slice(-24);write('naiwa-dorm-recent-v2',recent);
  const callback=scene.callback?.replace('前情后续 · 这件事和你此前的经历或当前状态有关。','').trim();
- app.innerHTML=`<div class="game-layout">${statusPanelHTML()}<section class="game-main"><div class="mobile-stats" style="--stat-count:${G.statKeys(state.stats).length}">${statHTML(state.stats)}</div>${openingBuffHTML()}${lotteryCreditHTML()}${taskHTML()}${illnessHTML()}${careHTML()}${romanceHTML()}<div class="scene-campus-nav"><button id="campus-open" class="campus-open">校园地图 <span aria-hidden="true">↗</span></button></div><div class="scene-header"><span class="scene-time">${scene.time} · ${esc(scene.place)}</span><span class="scene-step">第 ${state.day} 天 · ${sceneProgress()}</span></div>${scene.kind==='三餐'?C.render(state,scene,{asset,esc,narrative}):normalSceneHTML(scene,expression,callback)}${freeTimeHTML()}</section></div>`;
+ app.innerHTML=`<div class="game-layout">${statusPanelHTML()}<section class="game-main"><div class="mobile-stats" style="--stat-count:${G.statKeys(state.stats).length}">${statHTML(state.stats)}</div>${hungerHTML()}${openingBuffHTML()}${lotteryCreditHTML()}${taskHTML()}${illnessHTML()}${careHTML()}${romanceHTML()}<div class="scene-campus-nav"><button id="campus-open" class="campus-open">校园地图 <span aria-hidden="true">↗</span></button></div><div class="scene-header"><span class="scene-time">${scene.time} · ${esc(scene.place)}</span><span class="scene-step">第 ${state.day} 天 · ${sceneProgress()}</span></div>${scene.kind==='三餐'?C.render(state,scene,{asset,esc,narrative,stall:mealStall}):normalSceneHTML(scene,expression,callback)}${freeTimeHTML()}</section></div>`;
  document.querySelector('#pause-run').onclick=()=>{home();goTop();};
  document.querySelector('#campus-open').onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch)return;campusPlace=W.currentPlace(state);mapView();goTop();};
  const mapShortcut=document.querySelector('#campus-shortcut');if(mapShortcut)mapShortcut.onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch)return;campusPlace=W.currentPlace(state);mapView();goTop();};
  document.querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch||state.phase!=='choice'||b.disabled)return;try{state=G.choose(state,Number(b.dataset.choice));persist();if(state.failed)speak('failure');gameView();collectRomanceAwards();}catch{toast('这个选择暂时不可用。');}});
  document.querySelectorAll('[data-activity]').forEach(b=>b.onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch)return;try{state=G.startActivity(state,b.dataset.activity);persist();gameView();goTop();}catch{toast('这段时间暂时安排不了，可以换一个选择。');}});
  bindClinic(renderedState);bindExtraCare(renderedState);
+ document.querySelectorAll('[data-stall]').forEach(b=>b.onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch)return;mealStall=b.dataset.stall;gameView();});
  const next=document.querySelector('#next-scene');
  if(next)next.onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch||state.phase!=='outcome')return;state=G.next(state);persist();gameView();goTop();document.querySelector('#scene-title')?.focus({preventScroll:true});};
 }
