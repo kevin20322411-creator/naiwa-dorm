@@ -26,3 +26,5 @@
 @media(max-width:600px){.campus-map{aspect-ratio:640/1160;min-height:600px}.campus-place{width:25%;max-width:104px}.campus-place-name{font-size:9px}.campus-place[data-place="tower"] .campus-place-name{font-size:10px}}
 
 .campus-page[data-campus-map='night'] .campus-place-name{color:#53684d}.campus-page[data-campus-map='night'] .campus-place.is-selected .campus-place-name{background:#5e7752;color:#fff}
+
+.campus-goals-note{font-size:10px;line-height:1.7;color:#89917d;margin:10px 0 0}

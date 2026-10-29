@@ -1,0 +1,1179 @@
+{
+  "choice": {
+    "version": 6,
+    "seed": 72,
+    "name": "原版8.3",
+    "traits": [
+      "budget",
+      "brain"
+    ],
+    "stats": {
+      "energy": 60,
+      "money": 60,
+      "social": 45,
+      "study": 60,
+      "health": 86,
+      "mood": 65,
+      "charm": 40
+    },
+    "flags": {},
+    "day": 1,
+    "step": 0,
+    "phase": "choice",
+    "eventId": "meal-breakfast",
+    "log": [
+      {
+        "day": 1,
+        "step": -1,
+        "eventId": "character-talents",
+        "index": 0,
+        "time": "06:40",
+        "title": "带着天赋入学。",
+        "choice": "开局天赋",
+        "result": "新天赋已经生效。",
+        "changes": {
+          "energy": 8,
+          "health": 6
+        },
+        "flags": {},
+        "project": 0
+      }
+    ],
+    "outcome": null,
+    "bonus": false,
+    "failed": null,
+    "finalEnding": null,
+    "recent": [],
+    "actions": [
+      "h",
+      "b",
+      "v",
+      "p",
+      "y",
+      "f",
+      "i",
+      "q",
+      "w",
+      "u",
+      "t",
+      "j",
+      "k",
+      "m",
+      "g",
+      "z",
+      "R",
+      "J",
+      "X",
+      "N",
+      "V"
+    ],
+    "rest": null,
+    "openingBuff": null,
+    "term": {
+      "progress": 0,
+      "passed": 0,
+      "missed": 0,
+      "clutch": 0,
+      "cleanStreak": 0,
+      "bestStreak": 0
+    },
+    "restCare": true,
+    "campusBalance": true,
+    "romance": {
+      "connected": false,
+      "intimacy": 0,
+      "dating": false,
+      "familiar": 0,
+      "lastMeet": 0,
+      "lastInteraction": 0,
+      "earned": false,
+      "earnedDay": 0
+    },
+    "storyMode": true,
+    "rhythm": {
+      "day": 1,
+      "slots": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "minutes": 210,
+      "spent": 0,
+      "clock": 429,
+      "serial": 0,
+      "pending": null,
+      "lastActivity": null,
+      "autoSeen": [],
+      "counts": {},
+      "meetingSource": null
+    },
+    "foodUpdate": {
+      "day": 1,
+      "step": 0,
+      "keepCurrent": false
+    },
+    "illness": {
+      "active": false,
+      "level": 0,
+      "days": 0,
+      "streak": 0,
+      "appointment": null,
+      "since": 0,
+      "startDay": 1,
+      "startStep": 0,
+      "keepCurrent": false
+    },
+    "medical": null,
+    "meetings": {
+      "day": 1,
+      "step": 0,
+      "keepCurrent": false
+    },
+    "wellness": {
+      "lastColdDay": 0,
+      "lastColdId": null,
+      "nextMouseDay": 5,
+      "lastMouseId": null,
+      "mouse": null
+    },
+    "campusUpdate": {
+      "recent": [],
+      "photo": null,
+      "job": null
+    },
+    "evolution": {
+      "rewarded": false,
+      "rewardCredit": 0,
+      "breakDay": 0,
+      "loveRecent": [],
+      "supportDay": 0,
+      "care": null,
+      "psychDay": 0,
+      "psychBooked": false,
+      "bite": null
+    },
+    "lottery": {
+      "lastOfferDay": 0,
+      "credit": 0,
+      "won": false
+    },
+    "campusRevision": {
+      "confessDay": 0,
+      "proposal": null
+    },
+    "character": {
+      "selected": [
+        "budget",
+        "brain",
+        "athletic"
+      ],
+      "fresh": true,
+      "startDay": 1
+    },
+    "dining": {
+      "revision": 1
+    },
+    "socialUpdate": {
+      "ignoredDay": 0
+    },
+    "relationships": {
+      "activity": "art",
+      "taste": "tea",
+      "known": [],
+      "promise": null,
+      "strain": 0,
+      "lastTalkDay": 0,
+      "talks": 0,
+      "lastPlanDay": 0,
+      "lastCrisisDay": 0,
+      "kept": 0,
+      "pending": null
+    },
+    "journeys": {
+      "backgroundId": "freshman",
+      "startDay": 1,
+      "stage": 0,
+      "decisions": [],
+      "completedDay": 0,
+      "earned": false,
+      "pending": null
+    },
+    "auditFixes": {
+      "revision": 1
+    },
+    "nutrition": {
+      "value": 68,
+      "at": 1869,
+      "lastIncident": 0,
+      "legacyMap": false,
+      "startDay": 1
+    },
+    "campusLife": {
+      "joined": false,
+      "visits": 0,
+      "visited": [],
+      "notes": [],
+      "lastChatDay": 0,
+      "pending": null
+    }
+  },
+  "outcome": {
+    "version": 6,
+    "seed": 72,
+    "name": "原版8.3",
+    "traits": [
+      "budget",
+      "brain"
+    ],
+    "stats": {
+      "energy": 64,
+      "money": 60,
+      "social": 45,
+      "study": 60,
+      "health": 86,
+      "mood": 66,
+      "charm": 41
+    },
+    "flags": {
+      "meal": 1,
+      "breakfast": 1
+    },
+    "day": 1,
+    "step": 0,
+    "phase": "outcome",
+    "eventId": "meal-breakfast",
+    "log": [
+      {
+        "day": 1,
+        "step": -1,
+        "eventId": "character-talents",
+        "index": 0,
+        "time": "06:40",
+        "title": "带着天赋入学。",
+        "choice": "开局天赋",
+        "result": "新天赋已经生效。",
+        "changes": {
+          "energy": 8,
+          "health": 6
+        },
+        "flags": {},
+        "project": 0
+      },
+      {
+        "day": 1,
+        "step": 0,
+        "eventId": "meal-breakfast",
+        "index": 0,
+        "time": "07:09",
+        "title": "早八之前，先喂饱奶蛙。",
+        "choice": "宿舍燕麦 · ¥0（免费）",
+        "result": "热水一冲，早餐有着落了。",
+        "changes": {
+          "energy": 4,
+          "mood": 1,
+          "charm": 1
+        },
+        "flags": {
+          "meal": 1,
+          "breakfast": 1
+        },
+        "project": 0,
+        "riskFood": false
+      }
+    ],
+    "outcome": {
+      "day": 1,
+      "step": 0,
+      "eventId": "meal-breakfast",
+      "index": 0,
+      "time": "07:09",
+      "title": "早八之前，先喂饱奶蛙。",
+      "choice": "宿舍燕麦 · ¥0（免费）",
+      "result": "热水一冲，早餐有着落了。",
+      "changes": {
+        "energy": 4,
+        "mood": 1,
+        "charm": 1
+      },
+      "flags": {
+        "meal": 1,
+        "breakfast": 1
+      },
+      "project": 0,
+      "riskFood": false
+    },
+    "bonus": false,
+    "failed": null,
+    "finalEnding": null,
+    "recent": [],
+    "actions": [
+      "h",
+      "b",
+      "v",
+      "p",
+      "y",
+      "f",
+      "i",
+      "q",
+      "w",
+      "u",
+      "t",
+      "j",
+      "k",
+      "m",
+      "g",
+      "z",
+      "R",
+      "J",
+      "X",
+      "N",
+      "V",
+      "c0"
+    ],
+    "rest": null,
+    "openingBuff": null,
+    "term": {
+      "progress": 0,
+      "passed": 0,
+      "missed": 0,
+      "clutch": 0,
+      "cleanStreak": 0,
+      "bestStreak": 0
+    },
+    "restCare": true,
+    "campusBalance": true,
+    "romance": {
+      "connected": false,
+      "intimacy": 0,
+      "dating": false,
+      "familiar": 0,
+      "lastMeet": 0,
+      "lastInteraction": 0,
+      "earned": false,
+      "earnedDay": 0
+    },
+    "storyMode": true,
+    "rhythm": {
+      "day": 1,
+      "slots": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "minutes": 210,
+      "spent": 0,
+      "clock": 439,
+      "serial": 0,
+      "pending": null,
+      "lastActivity": null,
+      "autoSeen": [],
+      "counts": {},
+      "meetingSource": null
+    },
+    "foodUpdate": {
+      "day": 1,
+      "step": 0,
+      "keepCurrent": false
+    },
+    "illness": {
+      "active": false,
+      "level": 0,
+      "days": 0,
+      "streak": 0,
+      "appointment": null,
+      "since": 0,
+      "startDay": 1,
+      "startStep": 0,
+      "keepCurrent": false
+    },
+    "medical": null,
+    "meetings": {
+      "day": 1,
+      "step": 0,
+      "keepCurrent": false
+    },
+    "wellness": {
+      "lastColdDay": 0,
+      "lastColdId": null,
+      "nextMouseDay": 5,
+      "lastMouseId": null,
+      "mouse": null
+    },
+    "campusUpdate": {
+      "recent": [],
+      "photo": null,
+      "job": null
+    },
+    "evolution": {
+      "rewarded": false,
+      "rewardCredit": 0,
+      "breakDay": 0,
+      "loveRecent": [],
+      "supportDay": 0,
+      "care": null,
+      "psychDay": 0,
+      "psychBooked": false,
+      "bite": null
+    },
+    "lottery": {
+      "lastOfferDay": 0,
+      "credit": 0,
+      "won": false
+    },
+    "campusRevision": {
+      "confessDay": 0,
+      "proposal": null
+    },
+    "character": {
+      "selected": [
+        "budget",
+        "brain",
+        "athletic"
+      ],
+      "fresh": true,
+      "startDay": 1
+    },
+    "dining": {
+      "revision": 1
+    },
+    "socialUpdate": {
+      "ignoredDay": 0
+    },
+    "relationships": {
+      "activity": "art",
+      "taste": "tea",
+      "known": [],
+      "promise": null,
+      "strain": 0,
+      "lastTalkDay": 0,
+      "talks": 0,
+      "lastPlanDay": 0,
+      "lastCrisisDay": 0,
+      "kept": 0,
+      "pending": null
+    },
+    "journeys": {
+      "backgroundId": "freshman",
+      "startDay": 1,
+      "stage": 0,
+      "decisions": [],
+      "completedDay": 0,
+      "earned": false,
+      "pending": null
+    },
+    "auditFixes": {
+      "revision": 1
+    },
+    "nutrition": {
+      "value": 100,
+      "at": 1879,
+      "lastIncident": 0,
+      "legacyMap": false,
+      "startDay": 1
+    },
+    "campusLife": {
+      "joined": false,
+      "visits": 0,
+      "visited": [],
+      "notes": [],
+      "lastChatDay": 0,
+      "pending": null
+    }
+  },
+  "pending": {
+    "version": 6,
+    "seed": 72,
+    "name": "原版8.3",
+    "traits": [
+      "budget",
+      "brain"
+    ],
+    "stats": {
+      "energy": 64,
+      "money": 60,
+      "social": 45,
+      "study": 60,
+      "health": 86,
+      "mood": 66,
+      "charm": 41
+    },
+    "flags": {
+      "meal": 1,
+      "breakfast": 1
+    },
+    "day": 1,
+    "step": 0,
+    "phase": "choice",
+    "eventId": "campus83-sports-run",
+    "log": [
+      {
+        "day": 1,
+        "step": -1,
+        "eventId": "character-talents",
+        "index": 0,
+        "time": "06:40",
+        "title": "带着天赋入学。",
+        "choice": "开局天赋",
+        "result": "新天赋已经生效。",
+        "changes": {
+          "energy": 8,
+          "health": 6
+        },
+        "flags": {},
+        "project": 0
+      },
+      {
+        "day": 1,
+        "step": 0,
+        "eventId": "meal-breakfast",
+        "index": 0,
+        "time": "07:09",
+        "title": "早八之前，先喂饱奶蛙。",
+        "choice": "宿舍燕麦 · ¥0（免费）",
+        "result": "热水一冲，早餐有着落了。",
+        "changes": {
+          "energy": 4,
+          "mood": 1,
+          "charm": 1
+        },
+        "flags": {
+          "meal": 1,
+          "breakfast": 1
+        },
+        "project": 0,
+        "riskFood": false
+      }
+    ],
+    "outcome": null,
+    "bonus": false,
+    "failed": null,
+    "finalEnding": null,
+    "recent": [],
+    "actions": [
+      "h",
+      "b",
+      "v",
+      "p",
+      "y",
+      "f",
+      "i",
+      "q",
+      "w",
+      "u",
+      "t",
+      "j",
+      "k",
+      "m",
+      "g",
+      "z",
+      "R",
+      "J",
+      "X",
+      "N",
+      "V",
+      "c0",
+      "U:sports-run"
+    ],
+    "rest": null,
+    "openingBuff": null,
+    "term": {
+      "progress": 0,
+      "passed": 0,
+      "missed": 0,
+      "clutch": 0,
+      "cleanStreak": 0,
+      "bestStreak": 0
+    },
+    "restCare": true,
+    "campusBalance": true,
+    "romance": {
+      "connected": false,
+      "intimacy": 0,
+      "dating": false,
+      "familiar": 0,
+      "lastMeet": 0,
+      "lastInteraction": 0,
+      "earned": false,
+      "earnedDay": 0
+    },
+    "storyMode": true,
+    "rhythm": {
+      "day": 1,
+      "slots": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "minutes": 210,
+      "spent": 0,
+      "clock": 439,
+      "serial": 0,
+      "pending": null,
+      "lastActivity": null,
+      "autoSeen": [],
+      "counts": {},
+      "meetingSource": null
+    },
+    "foodUpdate": {
+      "day": 1,
+      "step": 0,
+      "keepCurrent": false
+    },
+    "illness": {
+      "active": false,
+      "level": 0,
+      "days": 0,
+      "streak": 0,
+      "appointment": null,
+      "since": 0,
+      "startDay": 1,
+      "startStep": 0,
+      "keepCurrent": false
+    },
+    "medical": null,
+    "meetings": {
+      "day": 1,
+      "step": 0,
+      "keepCurrent": false
+    },
+    "wellness": {
+      "lastColdDay": 0,
+      "lastColdId": null,
+      "nextMouseDay": 5,
+      "lastMouseId": null,
+      "mouse": null
+    },
+    "campusUpdate": {
+      "recent": [],
+      "photo": null,
+      "job": null
+    },
+    "evolution": {
+      "rewarded": false,
+      "rewardCredit": 0,
+      "breakDay": 0,
+      "loveRecent": [],
+      "supportDay": 0,
+      "care": null,
+      "psychDay": 0,
+      "psychBooked": false,
+      "bite": null
+    },
+    "lottery": {
+      "lastOfferDay": 0,
+      "credit": 0,
+      "won": false
+    },
+    "campusRevision": {
+      "confessDay": 0,
+      "proposal": null
+    },
+    "character": {
+      "selected": [
+        "budget",
+        "brain",
+        "athletic"
+      ],
+      "fresh": true,
+      "startDay": 1
+    },
+    "dining": {
+      "revision": 1
+    },
+    "socialUpdate": {
+      "ignoredDay": 0
+    },
+    "relationships": {
+      "activity": "art",
+      "taste": "tea",
+      "known": [],
+      "promise": null,
+      "strain": 0,
+      "lastTalkDay": 0,
+      "talks": 0,
+      "lastPlanDay": 0,
+      "lastCrisisDay": 0,
+      "kept": 0,
+      "pending": null
+    },
+    "journeys": {
+      "backgroundId": "freshman",
+      "startDay": 1,
+      "stage": 0,
+      "decisions": [],
+      "completedDay": 0,
+      "earned": false,
+      "pending": null
+    },
+    "auditFixes": {
+      "revision": 1
+    },
+    "nutrition": {
+      "value": 100,
+      "at": 1879,
+      "lastIncident": 0,
+      "legacyMap": false,
+      "startDay": 1
+    },
+    "campusLife": {
+      "joined": false,
+      "visits": 0,
+      "visited": [],
+      "notes": [],
+      "lastChatDay": 0,
+      "pending": {
+        "key": "sports-run",
+        "at": 439,
+        "done": false,
+        "previous": {
+          "eventId": "meal-breakfast",
+          "phase": "outcome",
+          "outcome": {
+            "day": 1,
+            "step": 0,
+            "eventId": "meal-breakfast",
+            "index": 0,
+            "time": "07:09",
+            "title": "早八之前，先喂饱奶蛙。",
+            "choice": "宿舍燕麦 · ¥0（免费）",
+            "result": "热水一冲，早餐有着落了。",
+            "changes": {
+              "energy": 4,
+              "mood": 1,
+              "charm": 1
+            },
+            "flags": {
+              "meal": 1,
+              "breakfast": 1
+            },
+            "project": 0,
+            "riskFood": false
+          }
+        }
+      }
+    }
+  },
+  "dayEnd": {
+    "version": 6,
+    "seed": 72,
+    "name": "原版8.3",
+    "traits": [
+      "budget",
+      "brain"
+    ],
+    "stats": {
+      "energy": 100,
+      "money": 0,
+      "social": 47,
+      "study": 74,
+      "health": 93,
+      "mood": 82,
+      "charm": 41
+    },
+    "flags": {
+      "meal": 3,
+      "breakfast": 1,
+      "rest": 2,
+      "lunch": 1,
+      "library": 1,
+      "dinner": 1,
+      "sleep": 1
+    },
+    "day": 1,
+    "step": 7,
+    "phase": "dayEnd",
+    "eventId": "alarm-committee",
+    "log": [
+      {
+        "day": 1,
+        "step": -1,
+        "eventId": "character-talents",
+        "index": 0,
+        "time": "06:40",
+        "title": "带着天赋入学。",
+        "choice": "开局天赋",
+        "result": "新天赋已经生效。",
+        "changes": {
+          "energy": 8,
+          "health": 6
+        },
+        "flags": {},
+        "project": 0
+      },
+      {
+        "day": 1,
+        "step": 0,
+        "eventId": "meal-breakfast",
+        "index": 0,
+        "time": "07:09",
+        "title": "早八之前，先喂饱奶蛙。",
+        "choice": "宿舍燕麦 · ¥0（免费）",
+        "result": "热水一冲，早餐有着落了。",
+        "changes": {
+          "energy": 4,
+          "mood": 1,
+          "charm": 1
+        },
+        "flags": {
+          "meal": 1,
+          "breakfast": 1
+        },
+        "project": 0,
+        "riskFood": false
+      },
+      {
+        "day": 1,
+        "step": 1,
+        "eventId": "well-cold-room",
+        "index": 1,
+        "time": "09:43",
+        "title": "室友感冒后，奶娃也开始打喷嚏。",
+        "choice": "先休息一阵，之后再安排就诊",
+        "result": "休息让精力缓过来一些，感冒还需要处理。空闲时可去校医院，日终也能预约。",
+        "changes": {
+          "energy": 6,
+          "mood": 1
+        },
+        "flags": {
+          "rest": 1
+        },
+        "project": 0
+      },
+      {
+        "day": 1,
+        "step": 2,
+        "eventId": "meal-lunch",
+        "index": 20,
+        "time": "11:38",
+        "title": "知识先放下，饭碗先端好。",
+        "choice": "校园小火锅 · ¥32",
+        "result": "端好校园小火锅，找个位置坐下。这一餐吃得踏实。",
+        "changes": {
+          "energy": 28,
+          "money": -32,
+          "health": 6,
+          "mood": 13
+        },
+        "flags": {
+          "meal": 1,
+          "lunch": 1
+        },
+        "project": 0,
+        "riskFood": false,
+        "outside": false,
+        "minutes": 10
+      },
+      {
+        "day": 1,
+        "step": 3,
+        "eventId": "campus-catalog-search",
+        "index": 2,
+        "time": "13:40",
+        "title": "书名只差一个字，检索结果却在另一栋楼。",
+        "choice": "先读一本感兴趣的短书，调整心情",
+        "result": "你没有完成整份资料清单，却认真读完了一小节。书页没有催你快一点。",
+        "changes": {
+          "energy": 2,
+          "study": 5
+        },
+        "flags": {
+          "library": 1
+        },
+        "project": 4
+      },
+      {
+        "day": 1,
+        "step": 4,
+        "eventId": "uni-campus-job",
+        "index": 2,
+        "time": "17:09",
+        "title": "服务点今天缺一双帮忙的手。",
+        "choice": "先记下信息，把今天的课业放在前面",
+        "result": "你没有接下做不完的事，先把自己的安排理顺。",
+        "changes": {
+          "energy": -2,
+          "study": 3
+        },
+        "flags": {},
+        "project": 2,
+        "minutes": 5
+      },
+      {
+        "day": 1,
+        "step": 5,
+        "eventId": "meal-dinner",
+        "index": 22,
+        "time": "18:38",
+        "title": "天快黑了，先把晚饭安排上。",
+        "choice": "韩式石锅拌饭 · ¥28",
+        "result": "奶蛙走出校门，找了家喜欢的小店，坐下来吃完韩式石锅拌饭，再慢慢回到校园。",
+        "changes": {
+          "energy": 2,
+          "money": -28,
+          "health": 1,
+          "mood": 2
+        },
+        "flags": {
+          "meal": 1,
+          "dinner": 1
+        },
+        "project": 0,
+        "riskFood": false,
+        "outside": true,
+        "minutes": 45
+      },
+      {
+        "day": 1,
+        "step": 5,
+        "eventId": "extra-music",
+        "index": 2,
+        "time": "19:23",
+        "title": "草坪上有人试着排一小段歌。",
+        "choice": "挥挥手，继续自己的安排",
+        "result": "旋律跟着你走出一小段路。",
+        "changes": {},
+        "flags": {},
+        "project": 0,
+        "intimacyChange": 0,
+        "contactDeleted": false,
+        "origin": "chance",
+        "minutes": 5
+      },
+      {
+        "day": 1,
+        "step": 7,
+        "eventId": "alarm-committee",
+        "index": 0,
+        "time": "22:57",
+        "title": "全寝决定：明天每人定三个闹钟。",
+        "choice": "约定一个共同闹钟，现在就睡",
+        "result": "房间终于安静下来。你对明天的信心，第一次不是靠嘴说的。",
+        "changes": {
+          "social": 2,
+          "study": 6
+        },
+        "flags": {
+          "sleep": 1,
+          "rest": 1
+        },
+        "project": 0
+      }
+    ],
+    "outcome": null,
+    "bonus": false,
+    "failed": null,
+    "finalEnding": null,
+    "recent": [],
+    "actions": [
+      "h",
+      "b",
+      "v",
+      "p",
+      "y",
+      "f",
+      "i",
+      "q",
+      "w",
+      "u",
+      "t",
+      "j",
+      "k",
+      "m",
+      "g",
+      "z",
+      "R",
+      "J",
+      "X",
+      "N",
+      "V",
+      "c0",
+      "n",
+      "c1",
+      "n",
+      "meal:20",
+      "n",
+      "c2",
+      "n",
+      "c2",
+      "n",
+      "meal:22",
+      "n",
+      "c2",
+      "n",
+      "c0",
+      "n"
+    ],
+    "rest": null,
+    "openingBuff": null,
+    "term": {
+      "progress": 6,
+      "passed": 0,
+      "missed": 0,
+      "clutch": 0,
+      "cleanStreak": 0,
+      "bestStreak": 0
+    },
+    "restCare": true,
+    "campusBalance": true,
+    "romance": {
+      "connected": false,
+      "intimacy": 0,
+      "dating": false,
+      "familiar": 0,
+      "lastMeet": 0,
+      "lastInteraction": 0,
+      "earned": false,
+      "earnedDay": 0
+    },
+    "storyMode": true,
+    "rhythm": {
+      "day": 1,
+      "slots": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "minutes": 210,
+      "spent": 40,
+      "clock": 1387,
+      "serial": 1,
+      "pending": null,
+      "lastActivity": null,
+      "autoSeen": [
+        5
+      ],
+      "counts": {
+        "hobby": 1
+      },
+      "meetingSource": null
+    },
+    "foodUpdate": {
+      "day": 1,
+      "step": 0,
+      "keepCurrent": false
+    },
+    "illness": {
+      "active": true,
+      "level": 1,
+      "days": 0,
+      "streak": 0,
+      "appointment": null,
+      "since": 1,
+      "startDay": 1,
+      "startStep": 0,
+      "keepCurrent": false,
+      "kind": "cold"
+    },
+    "medical": null,
+    "meetings": {
+      "day": 1,
+      "step": 0,
+      "keepCurrent": false
+    },
+    "wellness": {
+      "lastColdDay": 1,
+      "lastColdId": "well-cold-room",
+      "nextMouseDay": 5,
+      "lastMouseId": null,
+      "mouse": null
+    },
+    "campusUpdate": {
+      "recent": [
+        "uni-campus-job"
+      ],
+      "photo": null,
+      "job": null
+    },
+    "evolution": {
+      "rewarded": false,
+      "rewardCredit": 0,
+      "breakDay": 1,
+      "loveRecent": [],
+      "supportDay": 0,
+      "care": null,
+      "psychDay": 0,
+      "psychBooked": false,
+      "bite": null
+    },
+    "lottery": {
+      "lastOfferDay": 0,
+      "credit": 0,
+      "won": false
+    },
+    "campusRevision": {
+      "confessDay": 0,
+      "proposal": null
+    },
+    "character": {
+      "selected": [
+        "budget",
+        "brain",
+        "athletic"
+      ],
+      "fresh": true,
+      "startDay": 1
+    },
+    "dining": {
+      "revision": 1
+    },
+    "socialUpdate": {
+      "ignoredDay": 0
+    },
+    "relationships": {
+      "activity": "art",
+      "taste": "tea",
+      "known": [],
+      "promise": null,
+      "strain": 0,
+      "lastTalkDay": 0,
+      "talks": 0,
+      "lastPlanDay": 0,
+      "lastCrisisDay": 0,
+      "kept": 0,
+      "pending": null
+    },
+    "journeys": {
+      "backgroundId": "freshman",
+      "startDay": 1,
+      "stage": 0,
+      "decisions": [],
+      "completedDay": 0,
+      "earned": false,
+      "pending": null
+    },
+    "auditFixes": {
+      "revision": 1
+    },
+    "nutrition": {
+      "value": 88.8,
+      "at": 2827,
+      "lastIncident": 0,
+      "legacyMap": false,
+      "startDay": 1
+    },
+    "campusLife": {
+      "joined": false,
+      "visits": 0,
+      "visited": [],
+      "notes": [],
+      "lastChatDay": 0,
+      "pending": null
+    }
+  }
+}

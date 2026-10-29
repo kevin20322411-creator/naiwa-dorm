@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const G=window.DormGame,E=window.DormExpressions,W=window.DormWorld,M=window.DormCampus,C=window.DormCanteen,app=document.querySelector('#app'),saveKey='naiwa-dorm-run-v2',bookKey='naiwa-dorm-endings-v1';
-const RELEASE={version:'8.3',date:'2026.10.28',items:['天赐庄校园探索新增多个地点','加入实验室进组与研究日常','跑步、篮球与羽毛球活动','奶粉喜好手账与食物配图更新']};
+const RELEASE={version:'8.4',date:'2026.10.29',items:['食堂统一为细致卡通配图','调整饱食度与三餐体验','校园手账可持续解锁新目标']};
 const read=(k,fallback)=>{try{return JSON.parse(localStorage.getItem(k))??fallback;}catch{return fallback;}};
 const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch{return false;}};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -140,7 +140,7 @@ function gameView(){
  renderEpoch++;clearCard();
  view='game';
  if(!state){home();return;}
- const characterUpgrade=G.enableCharacter(G.enableCampusRevision(G.enableLottery(G.enableEvolution(G.enableCampus(G.enableWellness(G.enableMeetings(G.enableIllness(G.enableFood(G.enableRhythm(G.enableStory(G.enableRomance(G.enableBalance(G.enableCare(G.enableLife(state)))))))))))))));const upgraded=G.enableExpansion(G.enableNutrition(G.enableAudit(G.enableJourneys(G.enableRelationships(G.enableSocialUpdate(G.enableDining(characterUpgrade)))))));if(upgraded!==state){state=upgraded;persist();}
+ const characterUpgrade=G.enableCharacter(G.enableCampusRevision(G.enableLottery(G.enableEvolution(G.enableCampus(G.enableWellness(G.enableMeetings(G.enableIllness(G.enableFood(G.enableRhythm(G.enableStory(G.enableRomance(G.enableBalance(G.enableCare(G.enableLife(state)))))))))))))));const upgraded=G.enableMealTuning(G.enableExpansion(G.enableNutrition(G.enableAudit(G.enableJourneys(G.enableRelationships(G.enableSocialUpdate(G.enableDining(characterUpgrade))))))));if(upgraded!==state){state=upgraded;persist();}
  if(state.phase==='ending'||state.phase==='dayEnd'){endingView();return;}
  const renderedState=state,renderedEpoch=renderEpoch,scene=G.getScene(state),expression=E.scene(state,scene);
  if(!seenEvents.includes(scene.id)){seenEvents.push(scene.id);write('naiwa-dorm-events-v2',seenEvents);}

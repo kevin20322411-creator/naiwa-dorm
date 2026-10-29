@@ -3,7 +3,6 @@ const root=path.join(__dirname,'dist');
 const target=path.resolve(process.argv[2]||'奶娃宿舍体验版.html');
 const files={'frog.png':'image/png','frog-wave.png':'image/png','naishu.png':'image/png','naishu-cutout.png':'image/png','laugh.mp3':'audio/mpeg','eat-ganbadie.mp3':'audio/mpeg'};
 for(const name of fs.readdirSync(path.join(root,'assets')))if(/^meme-[a-z]+\.png$/.test(name))files[name]='image/png';
-files['food-atlas-v2.jpg']='image/jpeg';
 const assets=Object.fromEntries(Object.entries(files).map(([name,type])=>[name,'data:'+type+';base64,'+fs.readFileSync(path.join(root,'assets',name)).toString('base64')]));
 let html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 html=html.replace(/<link rel="stylesheet" href="\.\/styles\.css(?:\?[^\"]*)?">/,()=>'<style>'+fs.readFileSync(path.join(root,'styles.css'),'utf8')+'</style>');
