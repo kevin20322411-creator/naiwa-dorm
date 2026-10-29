@@ -1,0 +1,8 @@
+(function(root){'use strict';
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const aims=[{center:.58,width:.115},{center:.72,width:.10},{center:.47,width:.09}];
+function power(elapsed){return(1-Math.cos(Math.max(0,elapsed)*Math.PI/900))/2;}
+function judgeShot(value,index){const aim=aims[clamp(index,0,2)],error=value-aim.center,hit=Math.abs(error)<=aim.width;return{hit,error,near:!hit&&Math.abs(error)<=aim.width+.11,offset:hit?error/aim.width*10:Math.sign(error)*Math.max(45,Math.abs(error)*350),label:hit?(Math.abs(error)<.025?'空心入网！':'好球，进了！'):Math.abs(error)<=aim.width+.11?'差一点，找回手感。':error<0?'力量小了一点。':'这球劲儿有点大。'};}
+function photoGrade(scene,target,frame,moment){const inside=target.x>=frame.x&&target.x<=frame.x+frame.w&&target.y>=frame.y&&target.y<=frame.y+frame.h,margin=Math.min(target.x-frame.x,frame.x+frame.w-target.x,target.y-frame.y,frame.y+frame.h-target.y),whole=target.x-(target.w||0)/2>=frame.x&&target.x+(target.w||0)/2<=frame.x+frame.w&&target.y-(target.h||0)/2>=frame.y&&target.y+(target.h||0)/2<=frame.y+frame.h,composed=inside&&margin>42&&whole,perfect=composed&&(scene==='tower'||moment);return{inside,composed,perfect,title:scene==='tower'?(perfect?'钟楼的好天气':'草坪边的一张留念'):scene==='mouse'?(perfect?'奶鼠，抓拍成功':inside?'奶鼠经过的午后':'树荫下等一等'):perfect?'合照，刚刚好':inside?'一起留在照片里':'傍晚的校园',note:scene==='tower'?'把光线和钟楼，一起收进今天。':scene==='mouse'?(perfect?'刚好拍到它从树后探出来。':'它有自己的节奏，下次再等等看。'):perfect?'你们一起看向镜头的这一秒，被留下了。':'不必每张都完美，一起出现就很好。'};}
+const api={clamp,aims,power,judgeShot,photoGrade};root.CampusMini=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
+})(typeof globalThis!=='undefined'?globalThis:this);

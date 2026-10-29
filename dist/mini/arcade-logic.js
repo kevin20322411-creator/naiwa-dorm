@@ -1,0 +1,13 @@
+(function(root){'use strict';
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function badmintonGrade(error){const d=Math.abs(error);return d<=.115?'perfect':d<=.245?'good':'miss';}
+function clawGrip(dx,reach){const offset=Math.abs(dx);return reach&&offset<=45?clamp(1-offset/62,.18,1):0;}
+function racketContact(x=310,y=480,a=.45){return{x:x+88*Math.sin(a),y:y-88*Math.cos(a)};}
+function shuttleFlight(from,to,t,duration=1.65,g=240){const vx=(to.x-from.x)/duration,vy=(to.y-from.y-.5*g*duration*duration)/duration;return{x:from.x+vx*t,y:from.y+vy*t+.5*g*t*t,vx,vy:vy+g*t};}
+function shuttleGrade(q){const c=racketContact(),d=Math.hypot(q.x-c.x,q.y-c.y);return d<=29?'perfect':d<=58?'good':'miss';}
+function plushStep(toys,dt,held,anchor,grip=1){for(const p of toys){if(p.gone)continue;p.vx=p.vx||0;p.vy=p.vy||0;p.av=p.av||0;let ax=-p.vx*1.1,ay=850-p.vy*.55;if(p===held&&anchor){const k=25+85*grip;ax+=(anchor.x-p.x)*k-p.vx*13;ay+=(anchor.y-p.y)*k-p.vy*13;p.av+=((anchor.x-p.x)*.003-p.rotation*.6-p.av*.8)*dt*12;}p.vx+=ax*dt;p.vy+=ay*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.rotation+=p.av*dt;const floor=p.exit&&p.x>775?650:548;p.r=p.r||34;if(p.y+p.r>floor){p.y=floor-p.r;p.vy=-Math.abs(p.vy)*.22;p.vx*=.92;p.av-=p.rotation*dt*8;p.av*=.94;}if(p.x-p.r<125){p.x=125+p.r;p.vx=Math.abs(p.vx)*.3;}if(p.x+p.r>856){p.x=856-p.r;p.vx=-Math.abs(p.vx)*.3;}}for(let n=0;n<3;n++)for(let i=0;i<toys.length;i++)for(let j=i+1;j<toys.length;j++){const a=toys[i],b=toys[j];if(a.gone||b.gone||a.exit||b.exit)continue;let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),r=(a.r||34)+(b.r||34);if(d>=r)continue;if(d<.001){dx=1;dy=0;d=1;}const nx=dx/d,ny=dy/d,overlap=(r-d)*.51;a.x-=nx*overlap;a.y-=ny*overlap;b.x+=nx*overlap;b.y+=ny*overlap;const v=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;if(v<0){const impulse=-v*.55;a.vx-=nx*impulse;a.vy-=ny*impulse;b.vx+=nx*impulse;b.vy+=ny*impulse;}a.av-=nx*.01;b.av+=nx*.01;}}
+function runnerHit(lane,obj,jumping){return lane===obj.lane&&obj.kind!=='breakfast'&&(obj.kind==='barrier'||!jumping);}
+function pinLayout(){const pegs=[];for(let row=0;row<7;row++)for(let col=0;col<7;col++){const x=220+col*88+(row%2?35:0),y=185+row*52;if(x<850)pegs.push({x,y,r:13,hit:false,star:(row+col)%4===0});}return pegs;}
+function bounce(ball,peg){let dx=ball.x-peg.x,dy=ball.y-peg.y,d=Math.hypot(dx,dy),sum=ball.r+peg.r;if(d>=sum)return false;if(d<.001){dx=0;dy=-1;d=1;}const nx=dx/d,ny=dy/d,v=ball.vx*nx+ball.vy*ny;ball.x=peg.x+nx*(sum+.5);ball.y=peg.y+ny*(sum+.5);if(v<0){ball.vx-=1.8*v*nx;ball.vy-=1.8*v*ny;}return true;}
+const api={clamp,badmintonGrade,clawGrip,racketContact,shuttleFlight,shuttleGrade,plushStep,runnerHit,pinLayout,bounce};root.ArcadeLogic=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
+})(typeof globalThis!=='undefined'?globalThis:this);

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><script>window.MiniEmbedded=true;</script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f7f6ef">
+  <title>奶蛙 · 校园互动</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./arcade.css">
+</head>
+<body>
+<div class="shell">
+  <header class="top"><a class="brand" href="./">奶蛙校园<span>互动试玩</span></a><button id="sound" class="sound" aria-pressed="false">声音关</button></header>
+  <nav class="tabs" aria-label="选择互动"><button data-view="arcade" aria-current="page">课间游乐场</button><button data-view="basket">投篮练习</button><button data-view="camera">校园相机</button><button data-view="album">我的相册 <span id="album-count">0</span></button></nav>
+  <main>
+    <section id="arcade-view" class="view" aria-labelledby="arcade-title">
+      <div class="section-head"><div><p class="eyebrow">奶蛙校园 · 下课时间</p><h1 id="arcade-title">就玩一小会儿。</h1><p class="description">选一个，马上开始。</p></div><span class="preview-tag">试玩 02</span></div>
+      <div class="arcade-picker" role="group" aria-label="选择小游戏">
+        <button data-mini="badminton" aria-pressed="true"><span>◒</span><b>羽毛球</b><small>抓准时机</small></button>
+        <button data-mini="runner" aria-pressed="false"><span>↗</span><b>早八赶路</b><small>别迟到</small></button>
+        <button data-mini="claw" aria-pressed="false"><span>♧</span><b>抓奶蛙</b><small>夹个回家</small></button>
+        <button data-mini="squish" aria-pressed="false"><span>☻</span><b>揉一揉</b><small>随手解压</small></button>
+        <button data-mini="pinball" aria-pressed="false"><span>✦</span><b>弹珠台</b><small>连锁碰撞</small></button>
+      </div>
+      <div class="arcade-layout">
+        <div class="arcade-stage" data-mini-theme="badminton">
+          <canvas id="arcade-canvas" width="960" height="680" tabindex="0" aria-label="羽毛球试玩画面"></canvas>
+          <div class="arcade-hud"><span id="mini-location">运动馆 · 接杀挑战</span><span id="mini-counter">六球一轮</span></div>
+          <div id="mini-feedback" class="mini-feedback" role="status"></div>
+          <div id="mini-overlay" class="mini-overlay"><div class="mini-card"><span id="mini-kicker">READY?</span><h2 id="mini-heading">来回，来点手感。</h2><p id="mini-description">球飞到击球圈时，点击挥拍。</p><button class="button green" id="mini-start">开始接球</button></div></div>
+        </div>
+        <aside class="arcade-controls">
+          <div class="mini-heading"><span id="mini-label">羽毛球 · 六次来球</span><h2 id="mini-title">等一下，就是现在。</h2><p id="mini-help">球进入金色击球圈时挥拍。越接近中心，回球越漂亮。</p></div>
+          <div class="mini-stat"><span id="mini-stat-label">这轮接住</span><strong id="mini-stat">0 <small>/ 6</small></strong></div>
+          <div id="mini-actions"></div>
+          <button class="mini-reset" id="mini-reset">↻ 重新开始</button>
+          <p id="mini-result" class="mini-result" aria-live="polite"></p>
+        </aside>
+      </div>
+      <div class="bottom-note"><span>每轮十几秒。换个项目也可以。</span><span id="mini-record">最好纪录会留在这里。</span></div>
+      <div id="prize-shelf" class="prize-shelf" hidden></div>
+    </section>
+    <section id="basket-view" class="view" aria-labelledby="basket-title" hidden>
+      <div class="section-head"><div><p class="eyebrow">运动场 · 校园半场</p><h1 id="basket-title">去球场，投三个。</h1><p class="description" id="basket-instruction">按住蓄力，松手投篮。</p></div><div class="record"><span>最好手感</span><strong id="best-score">—</strong></div></div>
+      <div class="play-layout basket-layout"><div class="scene basket-scene">
+        <canvas id="basket-canvas" width="960" height="640" aria-label="奶蛙在校园篮球场投篮"></canvas>
+        <div class="scene-hud"><span class="location"><i></i> 篮球场</span><div class="round-hud"><span id="shot-dots" aria-label="三球成绩"></span><span id="round-time">三球一轮</span></div></div>
+        <div id="basket-overlay" class="basket-overlay"><div class="overlay-card"><span class="small-ball" aria-hidden="true">◉</span><h2>今天手感怎么样？</h2><p>三次出手，试试你的节奏。</p><button id="start-round" class="button orange">开始三球</button><button id="simple-finish" class="quiet">直接完成练习</button></div></div>
+        <div id="basket-feedback" class="basket-feedback" aria-live="polite"></div>
+      </div>
+      <div class="basket-controls"><div class="meter-top"><span id="power-hint">松手时，落在绿色区域。</span><b id="shot-number">准备出手</b></div><div id="power-track" class="power-track" role="progressbar" aria-label="投篮蓄力" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="sweet-zone" class="sweet-zone"></span><i id="power-fill"></i><b id="power-needle"></b></div><button id="shoot" class="button hold-button" disabled>按住蓄力 · 松手投篮<span>键盘可按住空格</span></button></div>
+      </div><div class="bottom-note"><span>一小段练习，也算认真运动过。</span><button class="inline-link" data-open-camera>去校园拍一张 ↗</button></div>
+    </section>
+    <section id="camera-view" class="view" aria-labelledby="camera-title" hidden>
+      <div class="section-head"><div><p class="eyebrow">校园相机 · 把今天留下</p><h1 id="camera-title">刚好，这一瞬间。</h1><p class="description">拖动画面构图，点一下快门。</p></div><button id="grid-toggle" class="icon-button" aria-pressed="true" aria-label="构图网格">▦</button></div>
+      <div class="locations" role="group" aria-label="拍照场景"><button data-scene="tower" aria-pressed="true">钟楼光影</button><button data-scene="mouse" aria-pressed="false">奶鼠探头</button><button data-scene="together" aria-pressed="false">和奶粉合照</button></div>
+      <div class="play-layout camera-layout"><div class="scene camera-scene"><canvas id="camera-canvas" width="960" height="640" tabindex="0" aria-label="校园取景画面，可拖动，也可用方向键调整"></canvas><div class="scene-hud camera-hud"><span class="location"><i></i><span id="camera-location">钟楼草坪</span></span><span class="film-label">NAIWA / CAMPUS</span></div><div id="camera-flash" class="camera-flash"></div><span class="viewfinder-mark tl"></span><span class="viewfinder-mark tr"></span><span class="viewfinder-mark bl"></span><span class="viewfinder-mark br"></span></div>
+      <div class="camera-controls"><button id="recent-photo" class="recent-photo" aria-label="查看最近一张照片"><span>还没拍照</span></button><div class="shutter-area"><span id="focus-hint" aria-live="polite">把钟楼放进取景框。</span><button id="shutter" class="shutter" aria-label="拍照"><i></i></button><span class="shutter-label">按下，留住今天</span></div><button id="recenter" class="recenter">↺<span>回到原位</span></button></div>
+      </div><div class="bottom-note"><span id="scene-note">草坪、钟楼和慢慢走过的人。</span><button class="inline-link" data-open-album>翻翻相册 ↗</button></div>
+    </section>
+    <section id="album-view" class="view" aria-labelledby="album-title" hidden><div class="section-head"><div><p class="eyebrow">校园相册 · 你的日常</p><h1 id="album-title">今天值得记住。</h1><p class="description">留下最近 12 张，随时可以保存。</p></div><button class="inline-link" data-open-camera>再去拍一张 ↗</button></div><div id="album-grid" class="album-grid"></div></section>
+  </main>
+  <footer><span>奶蛙 · 校园互动</span><span>本地试玩，不影响正式版存档</span></footer>
+</div>
+<dialog id="photo-dialog" class="photo-dialog" aria-labelledby="photo-title"><button id="close-photo" class="close" aria-label="关闭照片">×</button><p class="eyebrow" id="photo-location"></p><h2 id="photo-title">留住了。</h2><img id="photo-preview" alt="刚拍下的校园照片"><p id="photo-caption"></p><div class="dialog-actions"><a id="download-photo" class="button green" download>保存照片</a><button id="keep-shooting" class="button pale">继续拍</button></div></dialog>
+<div id="toast" class="toast" role="status"></div>
+<script src="./logic.js"></script><script src="./arcade-logic.js"></script><script src="./runner-challenge.js"></script><script src="./app.js"></script><script src="./arcade.js"></script>
+<script src="./bridge.js"></script></body>
+</html>
