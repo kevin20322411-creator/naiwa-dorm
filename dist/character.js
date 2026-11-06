@@ -3,6 +3,21 @@
 const browser=typeof module==='undefined'||!module.exports,B=browser?root.DormGame:require('./campus-revision.js'),L=browser?root.DormLife:require('./life.js');
 const clone=x=>JSON.parse(JSON.stringify(x)),native=new Set(B.traits.map(t=>t.id));
 const added=[{id:'flirt',icon:'💗',name:'情场达人',desc:'开局就多一点吸引力。',mods:{charm:10}},{id:'chosen',icon:'✨',name:'天选之子',desc:'彩票中奖率 +15 个百分点，增加小奖机会。',mods:{}},{id:'athletic',icon:'🏋️',name:'运动底子',desc:'带着更充足的精力和健康入学。',mods:{energy:8,health:6}},{id:'optimist',icon:'☀️',name:'乐天派',desc:'开局多一点好心情。',mods:{mood:10}}];
+// New IDs are appended; the released 24 talents and their replay stay intact.
+added.push(
+ {id:'classRep',icon:'📋',name:'课代表',desc:'每日首次专业课：课设+1。',mods:{}},
+ {id:'keyListener',icon:'🎧',name:'会听重点',desc:'每日首次公共或专业课：学业+1。',mods:{}},
+ {id:'napSwitch',icon:'💤',name:'午睡开关',desc:'每日首次休息：电量+2。',mods:{}},
+ {id:'jobHand',icon:'🧾',name:'兼职熟手',desc:'每日首次兼职：饭钱+2。',mods:{}},
+ {id:'morningExercise',icon:'🌿',name:'运动解压',desc:'每日首次运动：心情+1，高状态收益递减。',mods:{}},
+ {id:'lunchbox',icon:'🍱',name:'自带饭盒',desc:'每日首笔食堂付费餐返¥1，不超过实付。',mods:{}},
+ {id:'steadyPractice',icon:'🧩',name:'稳稳发挥',desc:'每日首次非略过专业实践：课设+1。',mods:{}},
+ {id:'observationNotes',icon:'📓',name:'实践笔记',desc:'每日首次非略过专业实践：学业+1。',mods:{}},
+ {id:'clubBuddy',icon:'🤝',name:'社团搭子',desc:'每日首次社交：人缘+1。',mods:{}},
+ {id:'piggyBank',icon:'🐷',name:'小金库',desc:'开局饭钱+12。',mods:{money:12},hideMods:true},
+ {id:'slowWarm',icon:'🍵',name:'慢热',desc:'开局魅力+6、人缘−3。',mods:{charm:6,social:-3},hideMods:true},
+ {id:'regularSleep',icon:'🌙',name:'规律作息',desc:'开局电量+4、健康+4。',mods:{energy:4,health:4},hideMods:true}
+);
 const traits=[...B.traits,...added],keys=[...B.keys,'charm'],labels={...B.labels,charm:'魅力'};
 function hash(x){let h=2166136261;for(const c of String(x))h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0;}
 const random=(s,key)=>B.rng(hash(s.seed+':character-1:'+s.day+':'+key))();

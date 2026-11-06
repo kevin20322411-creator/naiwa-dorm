@@ -6,20 +6,36 @@ const fail=s=>s.stats.health<=0?'fail-health':s.stats.mood<=0?'fail-mood':s.stat
 const delta=(a,b)=>Object.fromEntries(B.keys.filter(k=>a[k]!==b[k]).map(k=>[k,b[k]-a[k]]));
 function enableExpansion(s){if(s.version!==6||s.campusLife||s.phase==='ending')return s;return{...s,campusLife:{joined:false,visits:0,visited:[],notes:[],lastChatDay:0,pending:null},actions:[...s.actions,'V']};}
 const create=(...args)=>enableExpansion(B.create(...args));
+const shifts={
+ 'job-returns':{place:'library',label:'图书馆整理还书',minutes:12,money:9,energy:6,emoji:'📚',
+  title:'还书车上堆了一层新书。',text:'值班老师想找人按索书号分好这批还书。',task:'给这一车书分类',result:'书都分好了，值班老师结清了这次短岗的报酬。'},
+ 'job-gear':{place:'sports',label:'运动场器材登记',minutes:25,money:17,energy:11,emoji:'🏸',
+  title:'比赛散场，器材还没收齐。',text:'体育部需要人核对球拍、背心和借用记录。',task:'收齐器材，核对借用表',result:'最后一副球拍还回来了。体育部确认了登记表，也付清了工钱。'},
+ 'job-exhibit':{place:'museum',label:'博物馆展厅协助',minutes:35,money:23,energy:14,emoji:'🏛️',
+  title:'展厅需要一位临时帮手。',text:'帮访客指路，再把讲解用的折页和展签补齐。',task:'接下这段展厅短班',result:'短班结束，管理员核对了领用记录，也结清了报酬。'}
+};
 const definitions={
  'lab-apply':['lab','申请加入课题组',10], 'lab-work':['lab','去实验室',25],
  'sports-run':['sports','跑步',20], 'sports-basketball':['basketball','打篮球',30], 'sports-badminton':['badminton','打羽毛球',30],
  'tower-photo':['tower','钟楼草坪拍照',15], 'museum-visit':['museum','逛校园博物馆',25], 'wenxing-read':['wenxing','文星阁旁读书',20],
  'river-walk':['riverside','沿外城河走一段',15], 'red-lecture':['redbuilding','听一场开放讲座',25], 'garden-rest':['garden','在树荫下歇一会儿',15],
- 'campus-chat':['garden','和奶粉聊聊喜欢的东西',15]
+ 'campus-chat':['garden','和奶粉聊聊喜欢的东西',15],
+ ...Object.fromEntries(Object.entries(shifts).map(([key,shift])=>[key,[shift.place,shift.label+' · ¥'+shift.money,shift.minutes]]))
 };
 const c=(text,minutes,mods,result,extra={})=>({text,minutes,mods,result,flags:{},project:0,...extra});
 function used(s,key){return s.log.filter(e=>e.day===s.day&&e.campusActivity===key).length;}
-function customList(s){if(!s.campusLife||s.phase!=='outcome'||s.failed||s.lottery?.won||s.campusLife.pending)return[];const free=B.freeMinutes(s);return Object.entries(definitions).filter(([key,[,label,min]])=>free>=min&&(key==='lab-apply'?!s.campusLife.joined:key==='lab-work'?s.campusLife.joined&&used(s,key)<2:key==='campus-chat'?s.romance?.connected&&s.campusLife.lastChatDay!==s.day:used(s,key)<(key.startsWith('sports-')?3:1))).map(([id,[place,label]])=>({id,label,partner:id==='campus-chat',...(id==='lab-apply'&&s.stats.study<75?{disabledReason:'学业达到 75 后可以申请'}:{})}));}
+function customList(s){if(!s.campusLife||s.phase!=='outcome'||s.failed||s.lottery?.won||s.campusLife.pending)return[];const free=B.freeMinutes(s);return Object.entries(definitions).filter(([key,[,label,min]])=>(!shifts[key]||s.campusJobs?.revision===1)&&free>=min&&(key==='lab-apply'?!s.campusLife.joined:key==='lab-work'?s.campusLife.joined&&used(s,key)<2:key==='campus-chat'?s.romance?.connected&&s.campusLife.lastChatDay!==s.day:used(s,key)<(key.startsWith('sports-')?3:1))).map(([id,[place,label]])=>({id,label,partner:id==='campus-chat',...(id==='lab-apply'&&s.stats.study<75?{disabledReason:'学业达到 75 后可以申请'}:{})}));}
 function availableActivities(s){if(s.campusLife?.pending)return[];return[...B.availableActivities(s),...customList(s)];}
 function startActivity(s,key){if(!s.campusLife||!definitions[key])return B.startActivity(s,key);const a=customList(s).find(a=>a.id===key);if(!a||a.disabledReason)throw Error(a?.disabledReason||'现在没有合适的空闲时间');const pending={key,at:s.rhythm.clock,done:false,previous:{eventId:s.eventId,phase:s.phase,outcome:s.outcome}};return{...s,eventId:'campus83-'+key,phase:'choice',outcome:null,campusLife:{...s.campusLife,pending},actions:[...s.actions,'U:'+key]};}
-function customScene(s){const p=s.campusLife.pending,key=p.key,place=definitions[key][0],base={id:s.eventId,time:clock(p.at),place:placeNames[place],kind:'校园探索',emoji:'🌿',bubble:'去做一件自己想做的事。'};if(p.done)return{...base,title:s.outcome.title,text:'',choices:[]};let title,text,choices;
- if(key==='lab-apply'){title='课题组正在招本科生。';text='老师看过你的课程情况，邀请你先从读文献和复现入门。';choices=[c('和老师聊聊方向，确定加入',10,{energy:-3,study:2},'你问清了每周安排，也接受了第一次组会邀请。以后可以来实验室读文献、做复现和交流进展。',{join:true}),c('这学期先把基础学好，下次再来',0,{},'',{cancel:true})];}
+function customScene(s){const p=s.campusLife.pending,key=p.key,place=definitions[key][0],shift=shifts[key],base={id:s.eventId,time:clock(p.at),place:placeNames[place],kind:shift?'校园兼职':'校园探索',emoji:shift?.emoji||'🌿',bubble:shift?'按班次领报酬。':'去做一件自己想做的事。'};if(p.done)return{...base,title:s.outcome.title,text:'',choices:[]};let title,text,choices;
+ if(shift){
+  ({title,text}=shift);
+  choices=[
+   c(shift.task+' · ¥'+shift.money,shift.minutes,{energy:-shift.energy,money:shift.money},shift.result,{flags:{job:1}}),
+   c('这班先不接',0,{},'',{cancel:true})
+  ];
+ }
+ else if(key==='lab-apply'){title='课题组正在招本科生。';text='老师看过你的课程情况，邀请你先从读文献和复现入门。';choices=[c('和老师聊聊方向，确定加入',10,{energy:-3,study:2},'你问清了每周安排，也接受了第一次组会邀请。以后可以来实验室读文献、做复现和交流进展。',{join:true}),c('这学期先把基础学好，下次再来',0,{},'',{cancel:true})];}
  else if(key==='lab-work'){title='推开实验室的门，今天做点什么？';text='先选一个自己做得完的小目标。';choices=[c('读文献，把不懂的地方记下来',25,{energy:-10,study:8},'读懂了一小段，也把几个问题留在了笔记里。',{project:7,lab:true,flags:{library:1}}),c('复现一个小实验，认真记录结果',35,{energy:-15,study:12},'第一次没跑通，你检查步骤后终于得到了结果。',{project:11,lab:true}),c('参加组会，讲讲进展并听听建议',30,{energy:-9,study:6,social:2},'你讲清了卡住的地方，学长给了一个值得尝试的方向。',{project:6,lab:true}),c('今天先不安排实验室',0,{},'',{cancel:true})];}
  else if(key.startsWith('sports-')){const type=key.slice(7);const data={run:['跑道上，按自己的状态来。','慢跑一段，再认真拉伸',20,{energy:-9,health:4,mood:3},'慢跑结束，呼吸渐渐平稳下来。','试试间歇跑，跑完充分放松',30,{energy:-16,health:6,mood:4},'跑完最后一组，你放慢脚步，给身体留出恢复时间。'],basketball:['球场还有人，想怎么打？','练一会儿投篮和运球',30,{energy:-12,health:4,mood:4},'手感慢慢找回来了，最后一球空心入网。','和同学组队打一场半场',40,{energy:-19,health:5,mood:6,social:2},'有失误也有好球，散场时你们碰了碰拳。'],badminton:['羽毛球场亮着灯。','练高远球和步伐',30,{energy:-11,health:4,mood:4},'你慢慢找到击球节奏，练完记得放松肩背。','约个球友打一局',40,{energy:-17,health:5,mood:6,social:2},'来回几拍打得过瘾，输赢倒没那么要紧。']}[type];title=data[0];text='选一个今天想尝试的强度。';choices=[c(data[1],data[2],data[3],data[4],{flags:{sport:1}}),c(data[5],data[6],data[7],data[8],{flags:{sport:1}}),c('今天先休息',0,{},'',{cancel:true})];}
  else if(key==='campus-chat'){title='走到树荫下，你们聊起了各自的喜好。';text='不是每次见面都要安排大事。';choices=[c('问问她平时喜欢喝什么',15,{energy:-3,mood:2},'奶粉想了想，说起自己常点的饮料。',{discover:'drink'}),c('聊聊各自喜欢的运动',15,{energy:-3,mood:2},'从体育课聊到课余，她说起了自己最喜欢的运动。',{discover:'sport'}),c('问问她有没有特别想去的校园角落',15,{energy:-3,mood:2},'奶粉说起一个想和你一起去的地方。',{discover:'place'}),c('先各忙各的，下次再聊',0,{},'',{cancel:true})];}
@@ -33,7 +49,7 @@ function customScene(s){const p=s.campusLife.pending,key=p.key,place=definitions
  }[key];[title,text]=data;choices=[c(data[2],data[3],data[4],data[5],{flags:data[6]}),c('改天再来',0,{},'',{cancel:true})];}
  const free=B.freeMinutes({...s,...p.previous});return{...base,title,text,choices:choices.map(q=>q.minutes>free?{...q,disabledReason:'这段空闲只剩 '+free+' 分钟'}:q)};
 }
-const placeNames={lab:'实验室',sports:'运动场 · 跑道',basketball:'篮球场',badminton:'羽毛球馆',tower:'钟楼草坪',museum:'校园博物馆',wenxing:'文星阁旁',riverside:'外城河畔',redbuilding:'红楼 · 开放课堂',garden:'校园小花园'};
+const placeNames={lab:'实验室',library:'图书馆',sports:'运动场 · 跑道',basketball:'篮球场',badminton:'羽毛球馆',tower:'钟楼草坪',museum:'校园博物馆',wenxing:'文星阁旁',riverside:'外城河畔',redbuilding:'红楼 · 开放课堂',garden:'校园小花园'};
 function getScene(s){return s.campusLife?.pending?customScene(s):B.getScene(s);}
 function preferenceNotes(s){const r=B.relationshipStatus(s),notes=[];if(r?.knownActivity)notes.push('喜欢'+r.knownActivity);if(r?.knownTaste)notes.push('甜品偏好：'+r.knownTaste);if(s.romance?.connected)notes.push(...(s.campusLife?.notes||[]).map(n=>n.text));return notes;}
 function choose(s,index){if(!s.campusLife?.pending)return B.choose(s,index);const p=s.campusLife.pending,scene=getScene(s),q=scene.choices[index];if(s.phase!=='choice'||!Number.isInteger(index)||!q||q.disabledReason)throw Error('当前不能选择');if(q.cancel)return{...s,...p.previous,campusLife:{...s.campusLife,pending:null},actions:[...s.actions,'c'+index]};const life={...s.campusLife,visited:[...new Set([...s.campusLife.visited,definitions[p.key][0]])],notes:[...s.campusLife.notes],pending:{...p,done:true}},mods={...q.mods};for(const k of ['health','mood'])if(mods[k]>0)mods[k]=s.stats[k]>=80?Math.floor(mods[k]*.25):s.stats[k]>=65?Math.max(1,Math.round(mods[k]*.5)):mods[k];let result=q.result,flags={...q.flags},romance=s.romance;

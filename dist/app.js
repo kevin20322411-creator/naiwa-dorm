@@ -1,31 +1,57 @@
 (()=>{
 'use strict';
-const G=window.DormGame,E=window.DormExpressions,W=window.DormWorld,M=window.DormCampus,C=window.DormCanteen,app=document.querySelector('#app'),saveKey='naiwa-dorm-run-v2',bookKey='naiwa-dorm-endings-v1';
-const RELEASE={version:'9.0',date:'2026.10.30',items:['校园投篮、羽毛球与早八挑战上线','夹娃娃、揉奶蛙和弹珠互动开放','新增校园相册与公仔收藏','调整互动收益与每日奖励']};
+const G=window.DormGame,E=window.DormExpressions,W=window.DormWorld,M=window.DormCampus,C=window.DormCanteen,S=window.DormSchoolUI,U=window.DormMajorUI,app=document.querySelector('#app'),saveKey='naiwa-dorm-run-v2',bookKey='naiwa-dorm-endings-v1';
+const RELEASE={version:'9.4',date:'2026.11.07',items:['新课表与选课','新增专业、实践与天赋','更新课堂配图','新增校园兼职，调高常规工资']};
 const read=(k,fallback)=>{try{return JSON.parse(localStorage.getItem(k))??fallback;}catch{return fallback;}};
 const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch{return false;}};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const narrative=s=>String(s).replaceAll('奶娃','奶蛙').replace(/今天她有些疲惫，想把节奏放慢一点。|今天她忙着赶任务，想先把手头的事做好。|今天她有件开心的小事，想找人分享。/g,'').replaceAll('这次，是奶蛙先发来的消息。','奶蛙给奶粉发了条消息。').replace(/不用等(?:奶粉|你的宝宝)来找你。可以分享一件小事，也可以认真问问对方今天怎么样。/g,'聊点什么呢？').replace(/(?:奶粉|你的宝宝)等了一会儿，最后把聊天窗口收了起来。/g,'奶粉等了一会儿，以为你正在忙，便先收起了聊天窗口。').replace(/最迟第 \d+ 天结束前，需要去医院处理并打疫苗；逾期会触发“奶蛙长眠”。/g,'需要及时去医院处理咬伤并接种疫苗。').replaceAll('奶粉',state?.romance?.dating?'你的宝宝':'奶粉').replaceAll('一只粉色的奶蛙','奶粉').replaceAll('粉色的奶蛙','奶粉').replaceAll('旁边有人喊了一声“奶粉”。','').trim();
 let state=G.restore(read(saveKey,null)),renderEpoch=0,campusPlace=null,mealStall='today';
-let draftSeed=Date.now()>>>0,draftBatchSeed=draftSeed,offered=G.newDraft(draftSeed),selected=[],draftName='',draftBackground='freshman',draftSharedBackground=null,sound=read('naiwa-dorm-sound',true)===true,view='home',toastTimer;
+if(state&&G.upgradeTimetable){const upgraded=G.upgradeTimetable(state);if(upgraded!==state){state=upgraded;write(saveKey,state);}}
+if(state&&G.enableMajorLife){const upgraded=G.enableMajorLife(state);if(upgraded!==state){state=upgraded;write(saveKey,state);}}
+if(state&&G.enableTalentEffects){const upgraded=G.enableTalentEffects(state);if(upgraded!==state){state=upgraded;write(saveKey,state);}}
+let draftSeed=Date.now()>>>0,draftBatchSeed=draftSeed,offered=G.newDraft(draftSeed),selected=[],draftName='',draftBackground='freshman',draftSharedBackground=null,draftMajor='cs',schoolReturn='game',schoolTab='week',schoolOptInMajor='cs',sound=read('naiwa-dorm-sound',true)===true,view='home',toastTimer;
+let draftSelection=defaultCourseSelection(),schoolOptInSelection=defaultCourseSelection(),courseEdit=null;
+function defaultCourseSelection(){return{electives:['elective-photo'],pe:'pe-badminton'};}
+function copyCourseSelection(value){return{electives:[...(value?.electives||[])],pe:value?.pe||''};}
+function courseValidation(majorId,selection){return G.validateCourseSelection?G.validateCourseSelection(majorId,selection):{valid:true,errors:[],conflicts:[]};}
 let seen=read(bookKey,[]);if(!Array.isArray(seen))seen=[];seen=[...new Set(seen.filter(id=>G.endings.some(e=>e.id===id)))];
-function readSharedStart(){try{const p=new URLSearchParams((window.location?.search||'').replace(/\\&/g,'&')),seed=p.get('seed'),bg=p.get('bg'),ids=p.get('traits')?.split(',');if(!/^\d{1,10}$/.test(seed||'')||Number(seed)>4294967295||!G.backgrounds.some(b=>b.id===bg)||!ids||ids.length!==3||new Set(ids).size!==3||ids.some(id=>!G.traits.some(t=>t.id===id)))return null;return{seed:Number(seed),backgroundId:bg,traits:ids};}catch{return null;}}
+function readSharedStart(){
+ try{
+  const params=new URLSearchParams((window.location?.search||'').replace(/\\&/g,'&'));
+  const seed=params.get('seed'),backgroundId=params.get('bg'),traits=params.get('traits')?.split(',');
+  if(!/^\d{1,10}$/.test(seed||'')||Number(seed)>4294967295||!G.backgrounds.some(b=>b.id===backgroundId)||!traits||traits.length!==3||new Set(traits).size!==3||traits.some(id=>!G.traits.some(t=>t.id===id)))return null;
+  const courseFields=['major','electives','pe'];
+  const hasCourses=courseFields.some(key=>params.has(key));
+  if(!hasCourses)return{seed:Number(seed),backgroundId,traits,majorId:'cs',selection:defaultCourseSelection()};
+  if(courseFields.some(key=>params.getAll(key).length!==1))return null;
+  const majorId=params.get('major'),selection={electives:params.get('electives').split(','),pe:params.get('pe')};
+  if(!courseValidation(majorId,selection).valid)return null;
+  return{seed:Number(seed),backgroundId,traits,majorId,selection};
+ }catch{return null;}
+}
 const sharedStart=readSharedStart();let sharedStartUsed=false;
 const asset=name=>window.DormAssets?.[name]||'./assets/'+name;
 let recent=read('naiwa-dorm-recent-v2',[]),seenEvents=read('naiwa-dorm-events-v2',[]);
 if(!Array.isArray(recent))recent=[];if(!Array.isArray(seenEvents))seenEvents=[];
 const awardVoice=new Audio(asset('eat-ganbadie.mp3'));awardVoice.volume=.25;awardVoice.preload='auto';
 const laugh=new Audio(asset('laugh.mp3'));laugh.volume=.22;laugh.preload='auto';
-let activeVoice=null,voiceTimer,cardUrl=null;
+let activeVoice=null,voiceTimer,cardUrl=null,majorAudio=null;
+function stopMajorAudio(){if(!majorAudio)return;const context=majorAudio;majorAudio=null;try{const closing=context.close();if(closing?.catch)closing.catch(()=>{});}catch{}}
+function playMajorMelody(preview,current){
+ if(!current())return;if(!sound){toast('音效已关闭');return;}
+ const AudioContext=window.AudioContext||window.webkitAudioContext;if(!AudioContext){toast('当前浏览器暂不支持试听');return;}
+ stopMajorAudio();let context;try{context=new AudioContext();majorAudio=context;const play=()=>{if(!current()||!sound||majorAudio!==context){if(majorAudio===context)stopMajorAudio();return;}let at=context.currentTime+.035;const beat=60/(Number(preview.bpm)||108);for(const note of preview.notes||[]){const duration=Math.max(.1,Math.min(4,Number(note.beats)||1))*beat;if(Number(note.frequency)>0){const oscillator=context.createOscillator(),gain=context.createGain();oscillator.type='sine';oscillator.frequency.value=Number(note.frequency);gain.gain.setValueAtTime(0,at);gain.gain.linearRampToValueAtTime(.12,at+.02);gain.gain.setValueAtTime(.12,at+Math.max(.02,duration-.06));gain.gain.linearRampToValueAtTime(0,at+duration);oscillator.connect(gain);gain.connect(context.destination);oscillator.start(at);oscillator.stop(at+duration+.02);}at+=duration;}setTimeout(()=>{if(majorAudio===context)stopMajorAudio();},Math.ceil((at-context.currentTime+.1)*1000));};if(context.state==='suspended')context.resume().then(play).catch(()=>{stopMajorAudio();toast('试听暂时无法播放');});else play();}catch{stopMajorAudio();toast('试听暂时无法播放');}
+}
 function stopVoice(){clearTimeout(voiceTimer);if(activeVoice){activeVoice.pause();activeVoice.currentTime=0;activeVoice=null;}}
 function speak(kind='award',preview=false){
  if(!sound)return;stopVoice();activeVoice=kind==='failure'?laugh:awardVoice;
  activeVoice.currentTime=0;activeVoice.play().catch(()=>{if(preview)toast('音效暂时无法播放，请再点一次。');});
  voiceTimer=setTimeout(stopVoice,kind==='failure'?1600:2200);
 }
-function clearCard(){if(cardUrl){URL.revokeObjectURL(cardUrl);cardUrl=null;}}
+function clearCard(){stopMajorAudio();if(cardUrl){URL.revokeObjectURL(cardUrl);cardUrl=null;}}
 function toast(s){const t=document.querySelector('#toast');t.textContent=s;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2400);}
-function persist(){if(state&&!write(saveKey,state))toast('当前浏览器不能保存进度，请保持页面打开。');}
+function persist(){if(state&&G.upgradeTimetable)state=G.upgradeTimetable(state);if(state&&G.enableMajorLife)state=G.enableMajorLife(state);if(state&&G.enableTalentEffects)state=G.enableTalentEffects(state);if(state&&G.enableCampusJobs)state=G.enableCampusJobs(state);if(state&&!write(saveKey,state))toast('当前浏览器不能保存进度，请保持页面打开。');}
 function goTop(){window.scrollTo({top:0,behavior:'instant'});}
 function soundUI(){const b=document.querySelector('#sound-btn');b.textContent=sound?'音效开':'音效关';b.setAttribute('aria-pressed',String(sound));b.setAttribute('aria-label',sound?'关闭音效':'开启音效');}
 function updateBook(){document.querySelector('#collection-count').textContent=seen.length+'/'+G.endings.length;}
@@ -40,33 +66,52 @@ function showRelease(){
 function dismissRelease(){write('naiwa-dorm-release-hidden',document.querySelector('#release-skip').checked?RELEASE.version:null);document.querySelector('#release-modal').close();}
 function hungerHTML(){const v=G.fullness?.(state);return v===null||v===undefined?'':'<section class="satiety-card" aria-label="饱食度"><span>饱食度</span><div class="satiety-track" role="progressbar" aria-label="饱食度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.round(v)+'"><i style="width:'+v+'%;background:'+(v<20?'#cb8a60':'#99ad74')+'"></i></div><b>'+Math.round(v)+'</b></section>'; }
 function statHTML(s){return G.statKeys(s).map(k=>`<div class="stat ${s[k]<(k==='money'?8:20)?'warning':''}"><div class="stat-head"><span>${G.labels[k]}</span><b>${k==='money'?'¥':''}${s[k]}</b></div><div class="stat-track"><i style="width:${Math.min(100,s[k])}%"></i></div></div>`).join('');}
-function startDraft(useShared=false){const shared=useShared&&sharedStart&&!sharedStartUsed?sharedStart:null;selected=shared?[...shared.traits]:[];draftSeed=shared?shared.seed:Date.now()>>>0;draftBatchSeed=draftSeed;offered=G.newDraft(draftBatchSeed,selected);draftName=state?.name||'';draftBackground=shared?.backgroundId||'freshman';draftSharedBackground=shared?.backgroundId||null;traitsView();goTop();}
+function startDraft(useShared=false){const shared=useShared&&sharedStart&&!sharedStartUsed?sharedStart:null;selected=shared?[...shared.traits]:[];draftSeed=shared?shared.seed:Date.now()>>>0;draftBatchSeed=draftSeed;offered=G.newDraft(draftBatchSeed,selected);draftName=state?.name||'';draftBackground=shared?.backgroundId||'freshman';draftSharedBackground=shared?.backgroundId||null;draftMajor=shared?.majorId||'cs';draftSelection=copyCourseSelection(shared?.selection||defaultCourseSelection());traitsView();goTop();}
 function canShareStart(s){return s&&G.selectedTraits(s).length===3;}
-async function shareStart(s){if(!canShareStart(s)){toast('开始三天赋新局后，可分享同一起点。');return;}const bg=s.journeys?.backgroundId||'freshman',link='https://kevin20322411-creator.github.io/naiwa-dorm/?seed='+s.seed+'&bg='+encodeURIComponent(bg)+'&traits='+G.selectedTraits(s).map(encodeURIComponent).join(',');try{await navigator.clipboard.writeText(link);toast('开局链接已复制，发给室友一起试试。');}catch{toast('复制暂不可用，请再试一次。');}}
-function backgroundHTML(){const unlocked=new Set(G.availableBackgrounds(seen).map(b=>b.id));return '<section class="background-picker" aria-label="入学背景"><h2>这次，从哪里开始？</h2><div class="background-options">'+G.backgrounds.map(b=>{const trial=b.id===draftSharedBackground&&!unlocked.has(b.id),locked=!unlocked.has(b.id)&&!trial;return '<button class="background-option '+(draftBackground===b.id?'selected':'')+'" data-background="'+b.id+'" aria-pressed="'+(draftBackground===b.id)+'" '+(locked?'disabled':'')+'><strong>'+esc(b.name)+'</strong><span>'+esc(locked?'完成相关经历后解锁':b.desc)+'</span>'+(trial?'<small>本次分享体验</small>':'')+'</button>';}).join('')+'</div></section>';}
-function sharedSummary(){const bg=G.backgrounds.find(b=>b.id===sharedStart.backgroundId),names=sharedStart.traits.map(id=>G.traits.find(t=>t.id===id).name);return '<div class="shared-start-note"><strong>收到一个同起点开局</strong><span class="shared-background-name">'+esc(bg.name)+'</span><span class="shared-trait-names">'+names.map(esc).join(' · ')+'</span><span>体验这个开局，和朋友选出不同的人生。</span></div>';}
+async function shareStart(s){
+ if(!canShareStart(s)){toast('开始三天赋新局后，可分享同一起点。');return;}
+ const background=s.journeys?.backgroundId||'freshman',traits=G.selectedTraits(s).map(encodeURIComponent).join(',');
+ let link='https://kevin20322411-creator.github.io/naiwa-dorm/?seed='+s.seed+'&bg='+encodeURIComponent(background)+'&traits='+traits;
+ const major=s.school?.majorId||'cs';
+ const initial=s.school?.enrollments?.[0]?.selection||defaultCourseSelection();
+ const selection=courseValidation(major,initial).valid?initial:defaultCourseSelection();
+ const defaults=defaultCourseSelection();
+ if(major!=='cs'||selection.pe!==defaults.pe||selection.electives.length!==1||selection.electives[0]!==defaults.electives[0]){
+  link+='&major='+encodeURIComponent(major)+'&electives='+selection.electives.map(encodeURIComponent).join(',')+'&pe='+encodeURIComponent(selection.pe);
+ }
+ try{await navigator.clipboard.writeText(link);toast('开局链接已复制，发给室友一起试试。');}
+ catch{toast('复制暂不可用，请再试一次。');}
+}
+function backgroundHTML(){const unlocked=new Set(G.availableBackgrounds(seen).map(b=>b.id));return '<section class="background-picker" aria-label="入学背景"><h2>入学背景</h2><div class="background-options">'+G.backgrounds.map(b=>{const trial=b.id===draftSharedBackground&&!unlocked.has(b.id),locked=!unlocked.has(b.id)&&!trial;return '<button class="background-option '+(draftBackground===b.id?'selected':'')+'" data-background="'+b.id+'" aria-pressed="'+(draftBackground===b.id)+'" '+(locked?'disabled':'')+'><strong>'+esc(b.name)+'</strong><span>'+esc(locked?'完成相关经历后解锁':b.desc)+'</span>'+(trial?'<small>本次分享体验</small>':'')+'</button>';}).join('')+'</div></section>';}
+function sharedSummary(){
+ const bg=G.backgrounds.find(b=>b.id===sharedStart.backgroundId),major=G.majors.find(m=>m.id===sharedStart.majorId);
+ const names=sharedStart.traits.map(id=>G.traits.find(t=>t.id===id).name);
+ return '<div class="shared-start-note"><strong>收到一个同起点开局</strong><span class="shared-background-name">'+esc(bg.name+' · '+major.name)+'</span><span class="shared-trait-names">'+names.map(esc).join(' · ')+'</span></div>';
+}
 function home(){
  renderEpoch++;clearCard();
  view='home';
  const pendingShared=sharedStart&&!sharedStartUsed;
- app.innerHTML=`<section class="hero"><p class="hero-kicker">重生之</p><h1>我在宿舍<span>当奶蛙。</span></h1><p class="hero-description">选三项天赋，熬过每周 DDL。</p>${pendingShared?sharedSummary():''}<div class="hero-actions"><button class="button dark" id="new-run">${pendingShared?'体验这个开局':'开始新生活'}</button>${state?'<button class="button white" id="resume-run">'+(pendingShared?'继续我的存档':state.phase==='ending'?'上次结局':state.version<6?'继续上次（原规则）':'继续上次')+'</button>':''}</div>${pendingShared?'<button class="text-btn start-share" id="random-run">开始随机新生活</button>':canShareStart(state)?'<button class="text-btn start-share" id="share-start">分享同一起点</button>':''}<div class="hero-visual"><img class="hero-frog" src="${asset('frog.png')}" alt="准备入住大学宿舍的奶蛙"></div><div class="tiny-info"><span>${G.traits.length} 种天赋</span><span>${G.eventCount} 种校园事件</span><span>${G.endings.length} 项成就</span></div></section>`;
+ app.innerHTML=`<section class="hero"><div class="hero-copy"><p class="hero-kicker">重生之</p><h1>我在宿舍<span>当奶蛙。</span></h1>${pendingShared?sharedSummary():''}<div class="hero-actions"><button class="button dark" id="new-run">${pendingShared?'体验这个开局':'开始新生活'}</button>${state?'<button class="button white" id="resume-run">'+(pendingShared?'继续我的存档':state.phase==='ending'?'上次结局':state.version<6?'继续上次（原规则）':'继续上次')+'</button>':''}</div>${pendingShared?'<button class="text-btn start-share" id="random-run">开始随机新生活</button>':canShareStart(state)?'<button class="text-btn start-share" id="share-start">分享同一起点</button>':''}</div><div class="hero-visual"><img class="hero-frog" src="${asset('frog.png')}" alt="准备入住大学宿舍的奶蛙"></div></section>`;
  document.querySelector('#new-run').onclick=()=>startDraft(true);
- if(state)document.querySelector('#resume-run').onclick=()=>{gameView();goTop();};
+ if(state)document.querySelector('#resume-run').onclick=()=>{if(state&&G.enableCampusJobs){const upgraded=G.enableCampusJobs(state);if(upgraded!==state){state=upgraded;write(saveKey,state);}}gameView();goTop();};
  if(pendingShared)document.querySelector('#random-run').onclick=()=>startDraft(false);
  if(canShareStart(state)&&!pendingShared)document.querySelector('#share-start').onclick=()=>shareStart(state);
 }
 
 function traitsView(){
  renderEpoch++;clearCard();
- view='traits';
- app.innerHTML=`<div class="page-heading"><div><h1>${draftSharedBackground?'确认这次的开局。':'选三项天赋。'}</h1><p>${draftSharedBackground?'背景和三项天赋已带入，可调整后入学。':G.traits.length+' 种天赋 · 换批保留已选'}</p></div><button class="back" id="back-home">返回</button></div>${draftSharedBackground?'<p class="shared-draft-summary">已选：'+selected.map(id=>esc(G.traits.find(t=>t.id===id).name)).join(' · ')+'</p>':''}${backgroundHTML()}<div class="trait-layout"><div class="trait-grid">${offered.map(id=>{const t=G.traits.find(t=>t.id===id);return`<button class="trait-card ${selected.includes(id)?'selected':''}" data-trait="${id}" aria-pressed="${selected.includes(id)}"><span class="check">${selected.includes(id)?'✓':''}</span><span class="icon">${t.icon}</span><h3>${t.name}</h3><p>${t.desc}</p><span class="trait-detail">${G.keys.filter(k=>t.mods[k]).map(k=>G.labels[k]+(t.mods[k]>0?'+':'')+t.mods[k]).join(' · ')}</span></button>`;}).join('')}</div><aside class="admission"><img src="${asset('frog-wave.png')}" alt="挥手的奶蛙"><label class="name-label" for="player-name">你的名字</label><input class="name-input" id="player-name" maxlength="12" placeholder="奶蛙同学" value="${esc(draftName)}" autocomplete="off"><div class="selection-slots">${[0,1,2].map(i=>selected[i]?`<div class="selection-slot filled"><span>${esc(G.traits.find(t=>t.id===selected[i]).name)}</span><button class="remove-trait" data-remove-trait="${selected[i]}" aria-label="取消天赋：${esc(G.traits.find(t=>t.id===selected[i]).name)}">×</button></div>`:'<div class="selection-slot">未选择</div>').join('')}</div><button class="button dark full" id="enroll" ${selected.length!==3?'disabled':''}>入住宿舍</button><button class="quit-btn" id="reroll">换一批</button></aside></div>`;
- document.querySelectorAll('[data-background]').forEach(b=>b.onclick=()=>{if(b.disabled)return;draftName=document.querySelector('#player-name').value;draftBackground=b.dataset.background;traitsView();});
- document.querySelectorAll('[data-trait]').forEach(b=>b.onclick=()=>{draftName=document.querySelector('#player-name').value;const id=b.dataset.trait;if(selected.includes(id))selected=selected.filter(x=>x!==id);else if(selected.length<3)selected.push(id);else{toast('先取消一项天赋。');return;}traitsView();});
- document.querySelectorAll('[data-remove-trait]').forEach(b=>b.onclick=()=>{draftName=document.querySelector('#player-name').value;selected=selected.filter(id=>id!==b.dataset.removeTrait);traitsView();});
- document.querySelector('#player-name').oninput=e=>draftName=e.target.value;
- document.querySelector('#back-home').onclick=()=>{home();goTop();};
- document.querySelector('#reroll').onclick=()=>{draftName=document.querySelector('#player-name').value;draftBatchSeed=(draftBatchSeed+7391)>>>0;offered=G.newDraft(draftBatchSeed,selected,offered);traitsView();};
- document.querySelector('#enroll').onclick=()=>{if(view!=='traits'||selected.length!==3)return;state=G.create(draftSeed,selected,draftName,[],draftBackground);if(draftSharedBackground)sharedStartUsed=true;persist();gameView();goTop();};
+ view='traits';const draftEpoch=renderEpoch,current=()=>view==='traits'&&renderEpoch===draftEpoch;
+ app.innerHTML=`<div class="page-heading"><div><h1>${draftSharedBackground?'确认这次的开局。':'选三项天赋。'}</h1><p>${draftSharedBackground?'背景、专业、选课和三项天赋已带入，可调整后入学。':G.traits.length+' 种天赋 · 换批保留已选'}</p></div><button class="back" id="back-home">返回</button></div>${draftSharedBackground?'<p class="shared-draft-summary">已选：'+selected.map(id=>esc(G.traits.find(t=>t.id===id).name)).join(' · ')+'</p>':''}${backgroundHTML()}${S?.pickerHTML(G.majors,draftMajor)||''}${S?.selectionSummaryHTML(G.courseCatalog,draftSelection,{draft:true})||''}<div class="trait-layout"><div class="trait-grid">${offered.map(id=>{const t=G.traits.find(t=>t.id===id);return`<button class="trait-card ${selected.includes(id)?'selected':''}" data-trait="${id}" aria-pressed="${selected.includes(id)}"><span class="check">${selected.includes(id)?'✓':''}</span><span class="icon">${t.icon}</span><h3>${t.name}</h3><p>${t.desc}</p><span class="trait-detail">${G.keys.filter(k=>!t.hideMods&&t.mods[k]).map(k=>G.labels[k]+(t.mods[k]>0?'+':'')+t.mods[k]).join(' · ')}</span></button>`;}).join('')}</div><aside class="admission"><img src="${asset('frog-wave.png')}" alt="挥手的奶蛙"><label class="name-label" for="player-name">你的名字</label><input class="name-input" id="player-name" maxlength="12" placeholder="奶蛙同学" value="${esc(draftName)}" autocomplete="off"><div class="selection-slots">${[0,1,2].map(i=>selected[i]?`<div class="selection-slot filled"><span>${esc(G.traits.find(t=>t.id===selected[i]).name)}</span><button class="remove-trait" data-remove-trait="${selected[i]}" aria-label="取消天赋：${esc(G.traits.find(t=>t.id===selected[i]).name)}">×</button></div>`:'<div class="selection-slot">未选择</div>').join('')}</div><button class="button dark full" id="enroll" ${selected.length!==3?'disabled':''}>入住宿舍</button><button class="quit-btn" id="reroll">换一批</button></aside></div>`;
+ document.querySelectorAll('[data-major]').forEach(b=>b.onclick=()=>{if(!current())return;draftName=document.querySelector('#player-name').value;draftMajor=b.dataset.major;if(!courseValidation(draftMajor,draftSelection).valid){draftSelection=defaultCourseSelection();toast('已按新专业恢复推荐选课，可继续调整。');}traitsView();});
+ document.querySelectorAll('[data-background]').forEach(b=>b.onclick=()=>{if(!current()||b.disabled)return;draftName=document.querySelector('#player-name').value;draftBackground=b.dataset.background;traitsView();});
+ document.querySelectorAll('[data-trait]').forEach(b=>b.onclick=()=>{if(!current())return;draftName=document.querySelector('#player-name').value;const id=b.dataset.trait;if(selected.includes(id))selected=selected.filter(x=>x!==id);else if(selected.length<3)selected.push(id);else{toast('先取消一项天赋。');return;}traitsView();});
+ document.querySelectorAll('[data-remove-trait]').forEach(b=>b.onclick=()=>{if(!current())return;draftName=document.querySelector('#player-name').value;selected=selected.filter(id=>id!==b.dataset.removeTrait);traitsView();});
+ bindCourseEditor('draft',current);
+ document.querySelector('#player-name').oninput=e=>{if(current())draftName=e.target.value;};
+ document.querySelector('#back-home').onclick=()=>{if(current()){home();goTop();}};
+ document.querySelector('#reroll').onclick=()=>{if(!current())return;draftName=document.querySelector('#player-name').value;draftBatchSeed=(draftBatchSeed+7391)>>>0;offered=G.newDraft(draftBatchSeed,selected,offered);traitsView();};
+ document.querySelector('#enroll').onclick=()=>{if(!current()||selected.length!==3)return;if(!courseValidation(draftMajor,draftSelection).valid){toast('请先调整冲突的选课。');return;}state=G.create(draftSeed,selected,draftName,[],draftBackground,draftMajor,copyCourseSelection(draftSelection));if(draftSharedBackground)sharedStartUsed=true;persist();gameView();goTop();};
 }
 
 function openingBuffHTML(){
@@ -113,23 +158,100 @@ function careHTML(){
 function bindExtraCare(renderedState){document.querySelectorAll('[data-care]').forEach(b=>b.onclick=()=>{if(state!==renderedState)return;try{state=G.startActivity(state,b.dataset.care);persist();gameView();goTop();}catch{toast('可以换个空闲时段，或在今日结算预约。');}});}
 function bindClinic(renderedState){const button=document.querySelector('#clinic-btn');if(button)button.onclick=()=>{if(!['game','ending'].includes(view)||state!==renderedState)return;try{state=G.startActivity(state,'clinic');persist();gameView();goTop();}catch{toast('可以换个空闲时段，或在今日结算预约明早校医。');}};}
 function sceneProgress(){
- return state.rhythm?'第 '+(state.log.filter(e=>e.day===state.day&&(e.step>=0||e.campusActivity||e.origin==='relationship'||e.origin==='journey'||['clinic-visit','evo-vaccine','evo-psych','evo-breakup','love-naifen-confession'].includes(e.eventId))).length+(state.phase==='choice'?1:0))+' 件事':(state.step+1)+' / 8';
+ return state.rhythm?'第 '+(state.log.filter(e=>e.day===state.day&&(e.step>=0||e.campusActivity||e.schoolCourse||e.courseId||e.origin==='relationship'||e.origin==='journey'||['clinic-visit','evo-vaccine','evo-psych','evo-breakup','love-naifen-confession'].includes(e.eventId))).length+(state.phase==='choice'?1:0))+' 件事':(state.step+1)+' / 8';
 }
 function freeTimeHTML(){
  const list=G.availableActivities?.(state)||[];if(!list.length)return '';
  const buttons=partner=>list.filter(a=>a.partner===partner).map(a=>'<button class="activity-button" data-activity="'+a.id+'" '+(a.disabledReason?'disabled':'')+'>'+esc(a.label)+(a.disabledReason?'<small>'+esc(a.disabledReason)+'</small>':'')+'</button>').join('');
- return '<button class="campus-shortcut" id="campus-shortcut"><span aria-hidden="true">↗</span><span><strong>去校园逛逛</strong><small>选一站，安排接下来的时间</small></span><b aria-hidden="true">›</b></button><details class="free-time"><summary><strong>自由安排</strong><span>还有 '+G.freeMinutes(state)+' 分钟</span></summary><div class="free-time-content"><p>自己安排</p><div class="activity-grid">'+buttons(false)+'</div>'+(list.some(a=>a.partner)?'<p>和'+(state.romance?.dating?'你的宝宝':'奶粉')+'一起</p><div class="activity-grid">'+buttons(true)+'</div>':'')+'</div></details>';
+ return '<button class="campus-shortcut" id="campus-shortcut"><span aria-hidden="true">↗</span><span><strong>去校园逛逛</strong></span><b aria-hidden="true">›</b></button><details class="free-time"><summary><strong>自由安排</strong><span>还有 '+G.freeMinutes(state)+' 分钟</span></summary><div class="free-time-content"><p>独自</p><div class="activity-grid">'+buttons(false)+'</div>'+(list.some(a=>a.partner)?'<p>和'+(state.romance?.dating?'你的宝宝':'奶粉')+'一起</p><div class="activity-grid">'+buttons(true)+'</div>':'')+'</div></details>';
 }
 
-function statusPanelHTML(){return `<aside class="status-panel"><div class="player-title"><img class="player-avatar" src="${asset('frog.png')}" alt=""><b>${esc(state.name)}</b></div><div class="stats">${statHTML(state.stats)}</div><p class="status-rule">健康或心情归零，奶蛙长眠；电量或学业归零，本局结束。</p><div class="trait-chips">${G.selectedTraits(state).map(id=>`<span>${esc(G.traits.find(t=>t.id===id).name)}</span>`).join('')}</div><button class="quit-btn" id="pause-run">返回首页</button></aside>`;}
-function normalSceneHTML(scene,expression,callback){return `<div class="scene-art expression-art ${scene.kind==='三餐'?'meal-art':scene.romanceScene||scene.mouseScene?'romance-art'+(scene.mouseScene?' mouse-art':''):''}"><span class="scene-doodle" aria-hidden="true">${scene.emoji}</span><div class="scene-bubble">${esc(state.phase==='outcome'?expression.caption:scene.bubble)}</div><img class="${expression.original?'original-expression':'expression-sticker'}" src="${asset(expression.file)}" alt="${esc(expression.alt)}">${scene.romanceScene?`<img class="naiwa-pink" src="${asset('frog-wave.png')}" alt="奶粉">`:""}${scene.mouseScene?`<img class="scene-naishu" src="${asset('naishu-cutout.png')}" alt="奶鼠">`:""}</div><div class="story"><h1 tabindex="-1" id="scene-title">${esc(narrative(scene.title))}</h1>${state.phase==='choice'?`${callback?`<div class="callback">${esc(callback)}</div>`:''}<p>${esc(narrative(scene.text))}</p><div class="choices">${scene.choices.map((c,i)=>`<button class="choice" data-choice="${i}" ${c.disabledReason||(c.mods.money||0)<-state.stats.money?'disabled':''}><span class="choice-code">${'ABCDE'[i]}</span><span class="choice-content"><strong>${esc(choiceText(c))}</strong>${choiceNotice(c)?`<span class="choice-costs">${choiceNotice(c)}</span>`:""}</span><span class="choice-arrow" aria-hidden="true">›</span></button>`).join('')}</div><p class="mobile-rule">健康或心情归零，奶蛙长眠；电量或学业归零，本局结束。</p>`:`<div class="outcome" role="status"><span class="outcome-label">${state.outcome.miniGame?'活动完成':'选择 '+('ABCDE'[state.outcome.index]||'')}</span><p>${esc(narrative(state.outcome.result)).replace(/\n/g,'<br>')}</p><div class="changes">${state.outcome.intimacyChange?'<span class="affection-change">亲密度 '+(state.outcome.intimacyChange>0?'+':'')+state.outcome.intimacyChange+'</span>':''}${state.outcome.project?'<span>课设 +'+state.outcome.project+'</span>':''}${G.keys.filter(k=>state.outcome.changes[k]).map(k=>`<span class="${state.outcome.changes[k]<0?'negative':''}">${G.labels[k]} ${state.outcome.changes[k]>0?'+':''}${state.outcome.changes[k]}</span>`).join('')}</div>${state.failed?'<div class="failure-notice">'+(state.failed==='fail-energy'?'电量归零，本局结束。':['fail-health','fail-mood'].includes(state.failed)?'健康或心情归零，奶蛙长眠。':state.failed==='fail-mouse-family'?'奶鼠全网呼叫奶家人，本局结束。':state.failed==='fail-course'?'两次缺交课设，本学期转入重修。':'学业归零，触发劝退。')+'</div>':''}<button class="button dark" id="next-scene">${state.failed||state.lottery?.won?'查看结局':state.step===7?'今日结算':scene.kind==='三餐'&&!state.outcome.flags.missedMeal?'吃好了':'继续'}</button></div>`}</div>`;}
+function statusPanelHTML(){return `<aside class="status-panel"><div class="player-title"><img class="player-avatar" src="${asset('frog.png')}" alt=""><b>${esc(state.name)}</b></div><div class="stats">${statHTML(state.stats)}</div><p class="status-rule">电量、学业、健康或心情归零即结束。</p><div class="trait-chips">${G.selectedTraits(state).map(id=>`<span>${esc(G.traits.find(t=>t.id===id).name)}</span>`).join('')}</div><button class="quit-btn" id="pause-run">返回首页</button></aside>`;}
+function normalSceneHTML(scene,expression,callback){return `${scene.majorScene||(scene.schoolScene&&state.phase==='outcome'&&state.outcome?.schoolWork)?'':scene.schoolScene&&S?S.sceneArtHTML(scene,state.school?.majorId):`<div class="scene-art expression-art ${scene.kind==='三餐'?'meal-art':scene.romanceScene||scene.mouseScene?'romance-art'+(scene.mouseScene?' mouse-art':''):''}"><span class="scene-doodle" aria-hidden="true">${scene.emoji}</span>${state.phase==='choice'&&scene.bubble?'<div class="scene-bubble">'+esc(scene.bubble)+'</div>':''}<img class="${expression.original?'original-expression':'expression-sticker'}" src="${asset(expression.file)}" alt="${esc(expression.alt)}">${scene.romanceScene?`<img class="naiwa-pink" src="${asset('frog-wave.png')}" alt="奶粉">`:""}${scene.mouseScene?`<img class="scene-naishu" src="${asset('naishu-cutout.png')}" alt="奶鼠">`:""}</div>`}<div class="story"><h1 tabindex="-1" id="scene-title">${esc(narrative(scene.title))}</h1>${state.phase==='choice'?`${callback?`<div class="callback">${esc(callback)}</div>`:''}<p>${esc(narrative(scene.schoolScene?scene.text.replace(/^第 \d+ 周 [^。]+。今天的小目标：/,''):scene.text))}</p><div class="choices">${scene.choices.map((c,i)=>`<button class="choice" data-choice="${i}" ${c.disabledReason||(c.mods.money||0)<-state.stats.money?'disabled':''}><span class="choice-code">${'ABCDE'[i]}</span><span class="choice-content"><strong>${esc(choiceText(c))}</strong>${choiceNotice(c)?`<span class="choice-costs">${choiceNotice(c)}</span>`:""}</span><span class="choice-arrow" aria-hidden="true">›</span></button>`).join('')}</div><p class="mobile-rule">电量、学业、健康或心情归零即结束。</p>`:`<div class="outcome" role="status"><span class="outcome-label">${state.outcome.majorWork?'专业实践完成':scene.schoolScene?(state.outcome.schoolMakeup?'补学完成':'课堂记录'):state.outcome.miniGame?'活动完成':'选择 '+('ABCDE'[state.outcome.index]||'')}</span><p>${esc(narrative(state.outcome.result)).replace(/\n/g,'<br>')}</p><div class="changes">${state.outcome.intimacyChange?'<span class="affection-change">亲密度 '+(state.outcome.intimacyChange>0?'+':'')+state.outcome.intimacyChange+'</span>':''}${state.outcome.project?'<span>课设 +'+state.outcome.project+'</span>':''}${G.keys.filter(k=>state.outcome.changes[k]).map(k=>`<span class="${state.outcome.changes[k]<0?'negative':''}">${G.labels[k]} ${state.outcome.changes[k]>0?'+':''}${state.outcome.changes[k]}</span>`).join('')}</div>${schoolWorkHTML()}${state.failed?'<div class="failure-notice">'+(state.failed==='fail-energy'?'电量归零，本局结束。':['fail-health','fail-mood'].includes(state.failed)?'健康或心情归零，奶蛙长眠。':state.failed==='fail-mouse-family'?'奶鼠全网呼叫奶家人，本局结束。':state.failed==='fail-course'?'两次缺交课设，本学期转入重修。':'学业归零，触发劝退。')+'</div>':''}<button class="button dark" id="next-scene">${state.failed||state.lottery?.won?'查看结局':scene.schoolScene||scene.majorScene?'继续':state.step===7?'今日结算':scene.kind==='三餐'&&!state.outcome.flags.missedMeal?'吃好了':'继续'}</button></div>`}</div>`;}
 function openCurrentMini(){const p=state.miniGames?.pending;if(!p)return;const a=G.miniDefinitions[p.key];const settle=value=>{if(state?.miniGames?.pending?.token!==p.token)return;state=G.completeMini(state,value);persist();};const done=value=>{try{settle(value);gameView();collectRomanceAwards();}catch{toast('这次成绩没有结算，请再试一次。');gameView();}};window.DormMiniUI.open({key:p.key,token:p.token,title:a[1].split(' ·')[0],pink:!!state.romance?.connected,cost:a[2]+' 分钟'+(a[3]?' · ¥'+a[3]:''),onResult:settle,onCancel:()=>{if(state?.miniGames?.pending?.token===p.token){state=G.cancelMini(state);persist();}gameView();},onDone:done});}
 function miniCollectionHTML(){if(!state.miniGames)return '';const p=state.miniGames.prizes;return '<section class="mini-prizes"><strong>校园收藏</strong><span>奶蛙 '+p.frog+'</span><span>奶粉 '+p.pink+'</span><span>奶鼠 '+p.mouse+'</span><button class="text-btn" id="open-mini-album">相册 ↗</button></section>';}
+function bindCourseEditor(origin,current){
+ document.querySelectorAll('[data-course-edit]').forEach(b=>b.onclick=()=>{
+  if(!current()||b.disabled||!G.courseCatalog||!S?.coursePickerHTML)return;
+  let majorId,selection,note;
+  if(origin==='draft'){draftName=document.querySelector('#player-name').value;majorId=draftMajor;selection=draftSelection;}
+  else if(origin==='legacy'){majorId=schoolOptInMajor;selection=schoolOptInSelection;note='确认选课后返回，加入课表时才会保存。';}
+  else{const options=G.curriculumOptions(state);if(!options.canEdit)return;majorId=state.school.majorId;selection=options.queuedSelection||options.selection;note=options.note;}
+  if(!selection?.electives?.length||!selection?.pe)selection=defaultCourseSelection();
+  courseEdit={origin,majorId,selection:copyCourseSelection(selection),note,error:''};courseSelectionView();goTop();
+ });
+}
+function courseSelectionView(){
+ if(!courseEdit)return;
+ renderEpoch++;clearCard();view='course-selection';const epoch=renderEpoch,editor=courseEdit,renderedState=state,current=()=>view==='course-selection'&&courseEdit===editor&&renderEpoch===epoch&&state===renderedState;
+ const validation=courseValidation(editor.majorId,editor.selection);if(editor.error){validation.errors=[...(validation.errors||[]),editor.error];validation.valid=false;}
+ const inGame=editor.origin==='school',legacy=inGame&&state.school?.revision===1,options=inGame?G.curriculumOptions(state):null;
+ app.innerHTML=S.coursePickerHTML(G.courseCatalog,editor.selection,validation,{majorName:G.majors.find(m=>m.id===editor.majorId)?.name,note:editor.note,disabled:options?.canEdit===false,confirmLabel:inGame?(legacy?'加入选修 / 体育':'确认下周选课'):'确认选课',confirmNote:inGame?(legacy?'确认后加入后续课程，已发生的进度会保留。':'本周课表保持原安排，新选课从下周起生效。'):'确认后返回，入学时才会保存。'});
+ const close=()=>{if(!current())return;courseEdit=null;if(editor.origin==='draft')traitsView();else schoolView();goTop();};
+ document.querySelector('#course-cancel').onclick=close;
+ document.querySelectorAll('[data-course-choice]').forEach(b=>b.onclick=()=>{
+  if(!current())return;const id=b.dataset.courseChoice,isElective=G.courseCatalog.electives.some(c=>c.id===id),selection=copyCourseSelection(editor.selection);
+  if(isElective)selection.electives=selection.electives.includes(id)?selection.electives.filter(x=>x!==id):[...selection.electives,id];else selection.pe=selection.pe===id?'':id;
+  editor.selection=selection;editor.error='';courseSelectionView();
+ });
+ document.querySelector('#course-confirm').onclick=()=>{
+  if(!current()||!courseValidation(editor.majorId,editor.selection).valid||(inGame&&!G.curriculumOptions(state).canEdit))return;
+  try{
+   if(editor.origin==='draft')draftSelection=copyCourseSelection(editor.selection);
+   else if(editor.origin==='legacy')schoolOptInSelection=copyCourseSelection(editor.selection);
+   else{state=G.selectCourses(state,copyCourseSelection(editor.selection));persist();}
+   courseEdit=null;if(editor.origin==='draft')traitsView();else schoolView();goTop();
+  }catch(error){editor.error=error?.message||'选课没有保存，请再调整一次。';courseSelectionView();}
+ };
+}
+function schoolModel(){if(!S||!G.schoolView||!state?.school)return null;try{return G.schoolView(state);}catch{return null;}}
+function schoolCardHTML(){return S&&G.schoolView?S.cardHTML(schoolModel()):'';}
+function majorModel(){return U&&G.majorView&&state?G.majorView(state):null;}
+function majorCardHTML(){return U?.cardHTML(majorModel())||'';}
+function bindMajorOpen(current){
+ document.querySelectorAll('[data-major-listen-work]').forEach(b=>b.onclick=()=>{if(!current())return;try{playMajorMelody(JSON.parse(decodeURIComponent(b.dataset.majorListenWork)),current);}catch{toast('这段旋律暂时无法试听');}});
+ document.querySelectorAll('[data-major-start]').forEach(b=>b.onclick=()=>{if(!current()||b.disabled)return;try{state=G.startMajor(state);persist();gameView();goTop();}catch(error){toast(error?.message||'完成眼前的安排后，再来试试。');}});
+ document.querySelectorAll('[data-major-collection]').forEach(b=>b.onclick=()=>{if(!current())return;schoolReturn=view==='map'?'map':'game';schoolTab='catalog';schoolView();goTop();});
+}
+function majorInteractionView(){
+ const renderedState=state,epoch=renderEpoch,model=majorModel(),current=()=>view==='game'&&state===renderedState&&renderEpoch===epoch&&!!state.majorLife?.pending;
+ app.innerHTML='<div class="game-layout">'+statusPanelHTML()+'<section class="game-main"><div class="mobile-stats" style="--stat-count:'+G.statKeys(state.stats).length+'">'+statHTML(state.stats)+'</div>'+hungerHTML()+U.interactionHTML(model)+'</section></div>';
+ const action=(name,value)=>{if(!current())return;try{state=G.majorAct(state,name,value);persist();gameView();}catch(error){toast(error?.message||'这次修改没有保存，请再试一次。');}};
+ document.querySelectorAll('[data-major-option]').forEach(b=>b.onclick=()=>{if(!current())return;const [field,value]=b.dataset.majorOption.split('|');action('set',{field,value});});
+ document.querySelectorAll('[data-major-token]').forEach(b=>b.onclick=()=>{if(!current())return;action('set',{field:'token',value:b.dataset.majorToken});});
+ const listen=document.querySelector('#major-listen');if(listen)listen.onclick=()=>{if(current())playMajorMelody(model.pending.preview,current);};
+ const reference=document.querySelector('#major-listen-reference');if(reference)reference.onclick=()=>{if(current())playMajorMelody({...model.pending.preview,notes:model.pending.preview.referenceNotes},current);};
+ document.querySelector('#major-submit').onclick=()=>{if(!document.querySelector('#major-submit')?.disabled)action(model.pending.submitAction);};
+ document.querySelector('#major-cancel').onclick=()=>{if(!current())return;try{state=G.cancelMajor(state);persist();gameView();goTop();}catch(error){toast(error?.message||'暂时不能返回。');}};
+ document.querySelector('#major-skip').onclick=()=>{if(!current())return;try{state=G.skipMajor(state);persist();gameView();goTop();}catch(error){toast(error?.message||'这次练习暂时不能完成。');}};
+ document.querySelector('#pause-run').onclick=()=>{if(current()){home();goTop();}};
+}
+function schoolWorkHTML(){if(state.phase!=='outcome')return '';if(state.outcome?.majorWork)return U?.outcomeHTML(state.outcome.majorWork)||'';if(!S||!state.outcome?.schoolWork)return '';return '<section class="school-outcome-work" aria-label="本节课完成的作品"><div class="school-section-heading"><h2>课堂作品</h2></div>'+S.workHTML(state.outcome.schoolWork,state.school?.majorId)+'</section>';}
+function bindSchoolOpen(origin,current){document.querySelectorAll('[data-school-open]').forEach(b=>b.onclick=()=>{if(!current())return;schoolReturn=origin;schoolTab='week';schoolOptInMajor='cs';schoolOptInSelection=defaultCourseSelection();schoolView();goTop();});}
+function schoolView(){
+ if(!state||!S||!G.schoolView){gameView();return;}
+ renderEpoch++;clearCard();view='school';const epoch=renderEpoch,renderedState=state,current=()=>view==='school'&&state===renderedState&&renderEpoch===epoch,model=schoolModel();
+ const back=()=>{if(!current())return;if(schoolReturn==='map')mapView();else gameView();goTop();};
+ if(!model){
+  app.innerHTML='<section class="school-page"><header class="school-page-heading"><div><h1>选择专业</h1></div><button class="back" id="school-back">返回'+(schoolReturn==='map'?'地图':'游戏')+'</button></header><p class="school-enroll-note">确认后加入课表，保留进度。</p>'+S.pickerHTML(G.majors,schoolOptInMajor,{legacy:true})+S.selectionSummaryHTML(G.courseCatalog,schoolOptInSelection,{note:'确认加入课表时保存选课。'})+'<div class="school-legacy-actions"><button class="button dark" id="school-enable">确认</button><button class="button white" id="school-cancel">取消</button></div></section>';
+  document.querySelector('#school-back').onclick=back;document.querySelector('#school-cancel').onclick=back;
+  document.querySelectorAll('[data-major]').forEach(b=>b.onclick=()=>{if(!current())return;schoolOptInMajor=b.dataset.major;if(!courseValidation(schoolOptInMajor,schoolOptInSelection).valid)schoolOptInSelection=defaultCourseSelection();schoolView();});
+  document.querySelector('#school-enable').onclick=()=>{if(!current()||!G.enableSchool)return;try{const upgraded=G.enableSchool(state,schoolOptInMajor,copyCourseSelection(schoolOptInSelection));if(!upgraded?.school){toast('这份存档暂时不能加入课程。');return;}state=upgraded;persist();schoolView();toast('已启用课表');}catch{toast('这份存档暂时不能加入课程。');}};
+  bindCourseEditor('legacy',current);return;
+ }
+ const options=G.curriculumOptions?G.curriculumOptions(state):{};options.legacy=state.school?.revision===1;options.pendingTimetable=state.school?.revision<3;
+ app.innerHTML=S.timetableHTML(model,schoolTab,options).replace('</header>','</header>'+majorCardHTML())+(schoolTab==='catalog'?'<div class="major-school-collection">'+(U?.collectionHTML(majorModel())||'')+'</div>':'');const label=document.querySelector('.school-back-label');if(label)label.textContent=schoolReturn==='map'?'地图':'游戏';
+ document.querySelector('#school-back').onclick=back;
+ document.querySelectorAll('[data-school-tab]').forEach(b=>b.onclick=()=>{if(!current()||b.dataset.schoolTab===schoolTab)return;schoolTab=b.dataset.schoolTab;schoolView();});
+ bindCourseEditor('school',current);
+ bindMajorOpen(current);
+}
 function mapView(){
  clearCard();if(!state||['ending','dayEnd'].includes(state.phase)){gameView();return;}
  renderEpoch++;view='map';const renderedState=state,epoch=renderEpoch,model=W.model(state);if(!model.places.some(p=>p.id===campusPlace))campusPlace=model.currentId;const selected=campusPlace;
- app.innerHTML='<div class="game-layout map-game-layout">'+statusPanelHTML()+'<section class="game-main campus-main"><div class="mobile-stats" style="--stat-count:'+G.statKeys(state.stats).length+'">'+statHTML(state.stats)+'</div>'+hungerHTML()+M.render(state,model,selected,{asset,esc})+'</section></div>';
- const current=()=>view==='map'&&state===renderedState&&renderEpoch===epoch;
+ app.innerHTML='<div class="game-layout map-game-layout">'+statusPanelHTML()+'<section class="game-main campus-main"><div class="mobile-stats" style="--stat-count:'+G.statKeys(state.stats).length+'">'+statHTML(state.stats)+'</div>'+hungerHTML()+schoolCardHTML()+majorCardHTML()+M.render(state,model,selected,{asset,esc})+'</section></div>';
+ const current=()=>view==='map'&&state===renderedState&&renderEpoch===epoch;bindSchoolOpen('map',current);
+ bindMajorOpen(current);
  document.querySelector('#pause-run').onclick=()=>{if(current()){home();goTop();}};
  document.querySelectorAll('[data-place]').forEach(b=>b.onclick=()=>{if(!current())return;campusPlace=b.dataset.place;mapView();if(window.innerWidth<=600)document.querySelector('.campus-destination')?.scrollIntoView({block:'start',behavior:'smooth'});});
  document.querySelectorAll('[data-map-activity]').forEach(b=>b.onclick=()=>{if(!current()||b.disabled)return;try{state=W.startActivity(state,selected,b.dataset.mapActivity);persist();gameView();goTop();}catch{toast('这段空闲暂时安排不了，换一站看看。');}});
@@ -144,12 +266,15 @@ function gameView(){
  if(!state){home();return;}
  const characterUpgrade=G.enableCharacter(G.enableCampusRevision(G.enableLottery(G.enableEvolution(G.enableCampus(G.enableWellness(G.enableMeetings(G.enableIllness(G.enableFood(G.enableRhythm(G.enableStory(G.enableRomance(G.enableBalance(G.enableCare(G.enableLife(state)))))))))))))));const upgraded=G.enableMini(G.enableMealTuning(G.enableExpansion(G.enableNutrition(G.enableAudit(G.enableJourneys(G.enableRelationships(G.enableSocialUpdate(G.enableDining(characterUpgrade)))))))));if(upgraded!==state){state=upgraded;persist();}
  if(state.phase==='ending'||state.phase==='dayEnd'){endingView();return;}
+ if(U&&state.majorLife?.pending){majorInteractionView();return;}
  const renderedState=state,renderedEpoch=renderEpoch,scene=G.getScene(state),expression=E.scene(state,scene);
  if(!seenEvents.includes(scene.id)){seenEvents.push(scene.id);write('naiwa-dorm-events-v2',seenEvents);}
  recent=recent.filter(id=>id!==scene.id).concat(scene.id).slice(-24);write('naiwa-dorm-recent-v2',recent);
  const callback=scene.callback?.replace('前情后续 · 这件事和你此前的经历或当前状态有关。','').trim();
- app.innerHTML=`<div class="game-layout">${statusPanelHTML()}<section class="game-main"><div class="mobile-stats" style="--stat-count:${G.statKeys(state.stats).length}">${statHTML(state.stats)}</div>${hungerHTML()}${miniCollectionHTML()}${openingBuffHTML()}${lotteryCreditHTML()}${taskHTML()}${illnessHTML()}${careHTML()}${romanceHTML()}<div class="scene-campus-nav"><button id="campus-open" class="campus-open">校园地图 <span aria-hidden="true">↗</span></button></div><div class="scene-header"><span class="scene-time">${scene.time} · ${esc(scene.place)}</span><span class="scene-step">第 ${state.day} 天 · ${sceneProgress()}</span></div>${scene.kind==='三餐'?C.render(state,scene,{asset,esc,narrative,stall:mealStall}):normalSceneHTML(scene,expression,callback)}${freeTimeHTML()}</section></div>`;
- document.querySelector('#pause-run').onclick=()=>{home();goTop();};
+ app.innerHTML=`<div class="game-layout">${statusPanelHTML()}<section class="game-main"><div class="mobile-stats" style="--stat-count:${G.statKeys(state.stats).length}">${statHTML(state.stats)}</div>${hungerHTML()}<div class="daily-dashboard">${schoolCardHTML()}${majorCardHTML()}${taskHTML()}</div>${miniCollectionHTML()}${openingBuffHTML()}${lotteryCreditHTML()}${illnessHTML()}${careHTML()}${romanceHTML()}<div class="scene-campus-nav"><button id="campus-open" class="campus-open">校园地图 <span aria-hidden="true">↗</span></button></div><div class="scene-header"><span class="scene-time">${esc(scene.time)} · ${esc(scene.place)}${scene.schoolScene?'<span class="school-course-label">'+esc(scene.categoryLabel||({pe:'体育课',elective:'选修课',common:'公共课'}[scene.category])||'专业课')+'</span>':''}</span><span class="scene-step">第 ${state.day} 天 · ${sceneProgress()}</span></div>${scene.kind==='三餐'?C.render(state,scene,{asset,esc,narrative,stall:mealStall}):normalSceneHTML(scene,expression,callback)}${freeTimeHTML()}</section></div>`;
+ bindSchoolOpen('game',()=>view==='game'&&state===renderedState&&renderEpoch===renderedEpoch);
+ bindMajorOpen(()=>view==='game'&&state===renderedState&&renderEpoch===renderedEpoch);
+ document.querySelector('#pause-run').onclick=()=>{if(view==='game'&&state===renderedState&&renderEpoch===renderedEpoch){home();goTop();}};
  document.querySelector('#campus-open').onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch)return;campusPlace=W.currentPlace(state);mapView();goTop();};
  const mapShortcut=document.querySelector('#campus-shortcut');if(mapShortcut)mapShortcut.onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch)return;campusPlace=W.currentPlace(state);mapView();goTop();};
  document.querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch||state.phase!=='choice'||b.disabled)return;try{state=G.choose(state,Number(b.dataset.choice));persist();if(state.failed)speak('failure');gameView();collectRomanceAwards();}catch{toast('这个选择暂时不可用。');}});
@@ -203,7 +328,7 @@ document.querySelector('#collection-btn').onclick=showCollection;document.queryS
 document.querySelector('#unlock-close').onclick=document.querySelector('#unlock-accept').onclick=()=>document.querySelector('#unlock-modal').close();
 document.querySelector('#unlock-book').onclick=()=>{document.querySelector('#unlock-modal').close();showCollection();};
 document.querySelector('#unlock-modal').onclick=e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.currentTarget.close();}};
-document.querySelector('#sound-btn').onclick=()=>{sound=!sound;write('naiwa-dorm-sound',sound);soundUI();if(sound)speak('award',true);else stopVoice();};
+document.querySelector('#sound-btn').onclick=()=>{sound=!sound;write('naiwa-dorm-sound',sound);soundUI();if(sound)speak('award',true);else{stopVoice();stopMajorAudio();}};
 document.querySelector('.brand').onclick=e=>{e.preventDefault();home();goTop();};
 document.querySelector('#version-btn').textContent=document.querySelector('#footer-version').textContent='v'+RELEASE.version;
 document.querySelector('#version-btn').onclick=showRelease;
