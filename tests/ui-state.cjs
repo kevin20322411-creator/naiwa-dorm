@@ -1,22 +1,22 @@
 // 页面控制逻辑的隔离检查。这里使用最小 DOM 替身，不代替真实浏览器视觉检查。
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const source=__dirname+'/../dist/';
-function boot(storage=new Map(),search=''){
+function boot(storage=new Map(),search='',blockedWrites=new Set()){
  const nodes=new Map(),lists=new Map();let html='';
- const staticIds=new Set(['app','toast','collection-count','sound-btn','collection-btn','collection-modal','collection-grid','close-modal','close-modal-bottom','unlock-modal','unlock-title','unlock-list','unlock-close','unlock-accept','unlock-book','version-btn','footer-version','release-modal','release-version','release-date','release-list','release-skip','release-close','release-accept']);
+ const staticIds=new Set(['app','toast','collection-count','sound-btn','music-btn','collection-btn','collection-modal','collection-grid','collection-tabs','achievement-detail','achievement-detail-title','achievement-detail-body','achievement-detail-close','achievement-detail-back','close-modal','close-modal-bottom','unlock-modal','unlock-title','unlock-list','unlock-close','unlock-accept','unlock-book','version-btn','footer-version','release-modal','release-version','release-date','release-list','release-skip','release-close','release-accept']);
  function element(id){if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',style:{},dataset:{},classList:{add(){},remove(){}},setAttribute(){},focus(){},showModal(){this.open=true;},close(){this.open=false;},getBoundingClientRect(){return{left:0,top:0,right:100,bottom:100};}});return nodes.get(id);}
  const app=element('app');Object.defineProperty(app,'innerHTML',{get(){return html;},set(value){html=value;for(const key of nodes.keys())if(!staticIds.has(key)&&key!=='brand'&&key!=='intro')nodes.delete(key);lists.clear();}});
  const document={
   querySelector(q){if(q==='.brand')return element('brand');if(q==='.modal-intro')return element('intro');if(q.startsWith('#')){const id=q.slice(1);if(!staticIds.has(id)&&!html.includes('id="'+id+'"'))return null;const fresh=!nodes.has(id),node=element(id);if(fresh&&id==='player-name')node.value=html.match(/id="player-name"[^>]*value="([^"]*)"/)?.[1]||'';return node;}return null;},
-  querySelectorAll(q){if(lists.has(q))return lists.get(q);const attr=q.match(/^\[data-([a-z-]+)\]$/)?.[1],arr=[];if(!attr)return arr;const pattern=new RegExp('\\bdata-'+attr+'(?:="([^"]*)")?(?=\\s|>)');for(const tag of html.matchAll(/<button\b[^>]*>/g)){const found=tag[0].match(pattern);if(!found)continue;const node={...element(attr+found[1]),dataset:{[attr.replace(/-([a-z])/g,(_,c)=>c.toUpperCase())]:found[1]||''},disabled:/\sdisabled(?:\s|>)/.test(tag[0])};arr.push(node);}lists.set(q,arr);return arr;}
+  querySelectorAll(q){if(lists.has(q)&&!q.startsWith('[data-achievement')&&!q.startsWith('[data-unlock-achievement')&&!q.startsWith('[data-collection-tab')&&!q.startsWith('[data-finale'))return lists.get(q);const attr=q.match(/^\[data-([a-z-]+)\]$/)?.[1],arr=[];if(!attr)return arr;const pattern=new RegExp('\\bdata-'+attr+'(?:="([^"]*)")?(?=\\s|>)');for(const tag of (html+['collection-tabs','collection-grid','unlock-list'].map(id=>nodes.get(id)?.innerHTML||'').join('')).matchAll(/<button\b[^>]*>/g)){const found=tag[0].match(pattern);if(!found)continue;const node=Object.assign(element(attr+found[1]),{dataset:{[attr.replace(/-([a-z])/g,(_,c)=>c.toUpperCase())]:found[1]||''},disabled:/\sdisabled(?:\s|>)/.test(tag[0])});arr.push(node);}lists.set(q,arr);return arr;}
  };
  const audioCalls=[],clipboardCalls=[];
- const ctx={document,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},console,setTimeout:()=>0,clearTimeout(){},Audio:function(src){return{pause(){audioCalls.push({type:'pause',src});},play(){audioCalls.push({type:'play',src});return Promise.resolve();}}},navigator:{clipboard:{writeText:async text=>{clipboardCalls.push(text);}}},URLSearchParams,location:{search},addEventListener(){},scrollTo(){},Date:class extends Date{static now(){return 0;}},Map,Set,JSON,Math,Object,Array,String,Number,RegExp};ctx.window=ctx;vm.createContext(ctx);
+ const ctx={document,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>{if(blockedWrites.has(k))throw Error('Storage full');storage.set(k,v);}},console,setTimeout:()=>0,clearTimeout(){},Audio:function(src){return{pause(){audioCalls.push({type:'pause',src});},play(){audioCalls.push({type:'play',src});return Promise.resolve();}}},navigator:{clipboard:{writeText:async text=>{clipboardCalls.push(text);}}},URLSearchParams,location:{search},addEventListener(){},scrollTo(){},Date:class extends Date{static now(){return 0;}},Map,Set,JSON,Math,Object,Array,String,Number,RegExp};ctx.window=ctx;vm.createContext(ctx);
  const scripts=[...fs.readFileSync(source+'index.html','utf8').matchAll(/<script src="\.\/([^"?]+\.js)(?:\?[^"]*)?"><\/script>/g)].map(m=>m[1]);
  for(const file of scripts)vm.runInContext(fs.readFileSync(source+file,'utf8'),ctx,{filename:file});
- return{document,storage,audioCalls,clipboardCalls,G:ctx.DormGame,html:()=>html,saved:()=>JSON.parse(storage.get('naiwa-dorm-run-v2')||'null')};
+ return{document,storage,audioCalls,clipboardCalls,G:ctx.DormGame,A:ctx.DormAchievementBook,html:()=>html,saved:()=>JSON.parse(storage.get('naiwa-dorm-run-v2')||'null')};
 }
-const releaseUI=boot();assert(releaseUI.document.querySelector('#release-modal').open,'进入时自动展示公告');assert.equal(releaseUI.document.querySelector('#release-version').textContent,'v9.4');assert(releaseUI.document.querySelector('#release-list').innerHTML.includes('新增专业'));assert(!/概率|100万|1000000|20%|亲密度|触发条件/.test(releaseUI.document.querySelector('#release-list').innerHTML),'公告不泄露结果与条件');
+const releaseUI=boot();assert(releaseUI.document.querySelector('#release-modal').open,'进入时自动展示公告');assert.equal(releaseUI.document.querySelector('#release-version').textContent,'v9.5');assert(releaseUI.document.querySelector('#release-list').innerHTML.includes('新增正向结局'));assert(!/概率|100万|1000000|20%|亲密度|触发条件/.test(releaseUI.document.querySelector('#release-list').innerHTML),'公告不泄露结果与条件');
 releaseUI.document.querySelector('#release-accept').onclick();assert(!releaseUI.document.querySelector('#release-modal').open);assert(boot(releaseUI.storage).document.querySelector('#release-modal').open,'未选择不再提醒时，下次进入仍展示');releaseUI.document.querySelector('#version-btn').onclick();assert(releaseUI.document.querySelector('#release-modal').open,'顶部版本可重新查看');releaseUI.document.querySelector('#release-skip').checked=true;releaseUI.document.querySelector('#release-close').onclick();assert(!boot(releaseUI.storage).document.querySelector('#release-modal').open,'同版本不再提醒');const olderRelease=boot(new Map([['naiwa-dorm-release-hidden','"6.11"']]));assert(olderRelease.document.querySelector('#release-modal').open,'新版本重新提醒');olderRelease.document.querySelector('#release-modal').oncancel({preventDefault(){}});assert(!olderRelease.document.querySelector('#release-modal').open,'Escape可关闭');assert.equal(releaseUI.saved(),null,'公告操作不修改游戏存档');
 const lockUI=boot();lockUI.document.querySelector('#new-run').onclick();
 lockUI.document.querySelector('#player-name').value='锁定奶蛙';
@@ -49,9 +49,7 @@ for(let turn=0;turn<40&&ui.saved().phase!=='dayEnd';turn++){
  assert(!ui.saved().failed,'稳健选择应至少能完成这个首日样本');
 }
 assert.equal(ui.saved().phase,'dayEnd');assert(ui.document.querySelector('#continue-day'));
-assert.equal(ui.document.querySelector('#unlock-modal').open,true,'首次成就有弹窗');
-assert(ui.document.querySelector('#unlock-list').innerHTML.includes('<h3>'));
-ui.document.querySelector('#unlock-accept').onclick();assert.equal(ui.document.querySelector('#unlock-modal').open,false);
+assert(!ui.document.querySelector('#unlock-modal').open,'平安过一天不再解锁凑数成就');
 assert(!ui.audioCalls.some(c=>c.type==='play'),'普通选择和普通结算保持安静');
 assert(ui.html().includes('新课压力'));
 ui.document.querySelector('#continue-day').onclick();
@@ -84,11 +82,11 @@ for(const target of ['energy','study']){
  assert.equal(failureUI.document.querySelector('#continue-day'),null);
 }
 const duplicateBook=boot(new Map([['naiwa-dorm-endings-v1','["ordinary","ordinary"]']]));
-assert.equal(duplicateBook.document.querySelector('#collection-count').textContent,'1/'+duplicateBook.G.endings.length);
+assert.equal(duplicateBook.document.querySelector('#collection-count').textContent,'0/'+duplicateBook.A.items.length);
 const legacyDay8=require('./fixtures/v2-saves.json').find(f=>f.name==='dayEnd').save;
 const awardUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(legacyDay8)]]));
 awardUI.document.querySelector('#resume-run').onclick();
-assert.equal(awardUI.audioCalls.filter(c=>c.type==='play').length,1,'首次重要里程碑只播放一段语音');
+assert.equal(awardUI.audioCalls.filter(c=>c.type==='play').length,0,'旧版七天称号不再触发新成就');awardUI.document.querySelector('#sound-btn').onclick();awardUI.document.querySelector('#sound-btn').onclick();
 awardUI.document.querySelector('#sound-btn').onclick();
 assert(awardUI.audioCalls.some(c=>c.type==='pause'),'静音立即停止已有声音');
 const deadlineUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(require('./fixtures/v6-deadline.json'))]]));
@@ -100,8 +98,8 @@ deadlineUI.document.querySelector('#continue-day').onclick();assert.equal(deadli
 const loveSample=require('./romance.cjs').simulate(0);
 const noContact=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(loveSample.encounter)]]));noContact.document.querySelector('#resume-run').onclick();assert(!noContact.html().includes('aria-label="亲密度"'));assert(noContact.html().includes('奶粉'));assert(!noContact.html().includes('粉色的奶蛙'));assert(!noContact.html().includes('一只奶粉'));
 const contactUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(loveSample.contact)]]));contactUI.document.querySelector('#resume-run').onclick();assert(contactUI.html().includes('aria-valuenow="20"'));assert(contactUI.html().includes('alt="奶粉"'));
-const confessUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(loveSample.confession)]]));confessUI.document.querySelector('#resume-run').onclick();confessUI.document.querySelectorAll('[data-choice]')[0].onclick();assert(confessUI.saved().romance.dating);assert(confessUI.document.querySelector('#unlock-modal').open);assert(confessUI.document.querySelector('#unlock-list').innerHTML.includes('恋爱日常'));
-assert.equal(confessUI.audioCalls.filter(c=>c.type==='play').length,1);assert(JSON.parse(confessUI.storage.get('naiwa-dorm-endings-v1')).includes('love-ending'));
+const confessUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(loveSample.confession)]]));confessUI.document.querySelector('#resume-run').onclick();confessUI.document.querySelectorAll('[data-choice]')[0].onclick();assert(confessUI.saved().romance.dating);assert(!confessUI.document.querySelector('#unlock-modal').open,'刚表白成功还不足以解锁更高门槛恋爱成就');
+assert.equal(confessUI.audioCalls.filter(c=>c.type==='play').length,0);assert(!JSON.parse(confessUI.storage.get('naiwa-dorm-endings-v1')||'[]').includes('love-ending'));
 const loveReload=boot(confessUI.storage);loveReload.document.querySelector('#resume-run').onclick();assert(loveReload.html().includes('恋人'));assert(!loveReload.document.querySelector('#unlock-modal').open);
 const storyContact=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(require('./fixtures/v6-romance.json'))]]));storyContact.document.querySelector('#resume-run').onclick();assert(storyContact.saved().storyMode);assert(storyContact.G.valid(storyContact.saved()));assert(storyContact.html().includes('class="changes"'),'选择后保留真实变化');
 const rapidUI=boot();rapidUI.document.querySelector('#new-run').onclick();rapidUI.document.querySelectorAll('[data-trait]')[0].onclick();rapidUI.document.querySelectorAll('[data-trait]')[1].onclick();rapidUI.document.querySelectorAll('[data-trait]')[2].onclick();rapidUI.document.querySelector('#enroll').onclick();
@@ -173,3 +171,67 @@ console.log('通过：可视化点餐、校园地图17地点、只读浏览、�
 const stallUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(ui.G.create(72,['budget','brain','athletic'],'档口',[],'freshman'))]]));stallUI.document.querySelector('#resume-run').onclick();const stallBefore=stallUI.storage.get('naiwa-dorm-run-v2');assert.equal(stallUI.document.querySelectorAll('[data-stall]').length,6);stallUI.document.querySelectorAll('[data-stall]').find(b=>b.dataset.stall==='outside').onclick();assert.equal(stallUI.storage.get('naiwa-dorm-run-v2'),stallBefore);assert(stallUI.html().includes('校外小店'));const outsideClick=stallUI.document.querySelectorAll('[data-choice]').find(b=>b.dataset.choice==='21').onclick;outsideClick();assert(stallUI.saved().outcome.outside);assert.equal(stallUI.saved().nutrition.value,100);assert(stallUI.G.valid(stallUI.saved()));const outsideSaved=stallUI.storage.get('naiwa-dorm-run-v2');outsideClick();assert.equal(stallUI.storage.get('naiwa-dorm-run-v2'),outsideSaved);console.log('通过：档口只读切换、校外用餐、饱食度、重复点击与存档恢复。');
 
 const expanded=ui.G.choose(ui.G.create(72,['budget','brain','athletic'],'探索',[],'freshman'),0),expUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(expanded)]]));expUI.document.querySelector('#resume-run').onclick();assert(expUI.document.querySelectorAll('[data-activity]').some(b=>b.dataset.activity==='sports-run'),'自由安排显示新增活动');assert(expUI.document.querySelectorAll('[data-activity]').find(b=>b.dataset.activity==='lab-apply').disabled,'学业不足的申请按钮禁用');expUI.document.querySelector('#campus-open').onclick();expUI.document.querySelectorAll('[data-place]').find(b=>b.dataset.place==='basketball').onclick();const openBasket=expUI.document.querySelectorAll('[data-map-activity]').find(b=>b.dataset.mapActivity==='sports-basketball').onclick;openBasket();assert(expUI.html().includes('球场还有人'));const takeShot=expUI.document.querySelectorAll('[data-choice]')[0].onclick;takeShot();assert(expUI.html().includes('第 2 件事'),'新活动结算保持事件序号');const shotSaved=expUI.storage.get('naiwa-dorm-run-v2');takeShot();openBasket();assert.equal(expUI.storage.get('naiwa-dorm-run-v2'),shotSaved,'旧地图和选择按钮不能重复推进');const shotReload=boot(expUI.storage);shotReload.document.querySelector('#resume-run').onclick();assert(shotReload.html().includes('手感慢慢找回来了'));shotReload.document.querySelector('#next-scene').onclick();assert(!shotReload.html().includes('球场还有人'));assert(shotReload.G.valid(shotReload.saved()));console.log('通过：新地图活动、门槛按钮、事件计数、旧点击隔离、刷新恢复与继续衔接。');
+
+// The new collection separates targets from historical titles and stores first-unlock facts.
+duplicateBook.document.querySelector('#collection-btn').onclick();
+assert.equal((duplicateBook.document.querySelector('#collection-grid').innerHTML.match(/class="collection-item locked"/g)||[]).length,24);
+assert(!duplicateBook.document.querySelector('#collection-grid').innerHTML.includes('普通奶'),'锁定格不写名字或条件');
+const historyTab=duplicateBook.document.querySelectorAll('[data-collection-tab]').find(b=>b.dataset.collectionTab==='legacy');historyTab.onclick();
+const legacyOpen=duplicateBook.document.querySelectorAll('[data-achievement]')[0];assert.equal(legacyOpen.dataset.achievement,'ordinary');
+const beforeLegacyDetail=duplicateBook.storage.get('naiwa-dorm-run-v2');legacyOpen.onclick();
+assert(duplicateBook.document.querySelector('#achievement-detail').open);assert(!duplicateBook.document.querySelector('#collection-modal').open);
+assert(duplicateBook.document.querySelector('#achievement-detail-body').innerHTML.includes('未保存当时的触发记录'));
+assert.equal(duplicateBook.storage.get('naiwa-dorm-run-v2'),beforeLegacyDetail,'看详情不修改游戏');
+duplicateBook.document.querySelector('#achievement-detail').oncancel({preventDefault(){}});assert(duplicateBook.document.querySelector('#collection-modal').open);
+const jackpotFacts=JSON.parse(jackpotUI.storage.get('naiwa-dorm-achievement-evidence-v1'))['lottery-winner'];assert(jackpotFacts.facts.some(f=>f.includes('1,000,000')));
+jackpotUI.document.querySelectorAll('[data-unlock-achievement]').find(b=>b.dataset.unlockAchievement==='lottery-winner').onclick();
+assert(jackpotUI.document.querySelector('#achievement-detail').open);assert(jackpotUI.document.querySelector('#achievement-detail-body').innerHTML.includes('本局彩票记录'));
+assert(jackpotUI.document.querySelector('#achievement-detail-body').innerHTML.includes('天解锁'));jackpotUI.document.querySelector('#achievement-detail-back').onclick();assert(jackpotUI.document.querySelector('#unlock-modal').open);
+const jackpotProofCopy=jackpotUI.storage.get('naiwa-dorm-achievement-evidence-v1'),jackpotReload=boot(jackpotUI.storage);jackpotReload.document.querySelector('#resume-run').onclick();assert(!jackpotReload.document.querySelector('#unlock-modal').open);assert.equal(jackpotUI.storage.get('naiwa-dorm-achievement-evidence-v1'),jackpotProofCopy,'首解锁证据不可被别局改写');
+jackpotReload.document.querySelector('#collection-btn').onclick();jackpotReload.document.querySelectorAll('[data-achievement]').find(b=>b.dataset.achievement==='lottery-winner').onclick();assert(jackpotReload.document.querySelector('#achievement-detail-body').innerHTML.includes('本局彩票记录'));
+// Either individual browser storage write may fail. A durable proof must still recover as earned.
+for(const failedKey of ['naiwa-dorm-achievement-evidence-v1','naiwa-dorm-endings-v1']){
+ const brokenStorage=new Map([['naiwa-dorm-run-v2',JSON.stringify(lotterySamples.jackpot.before)]]),blocked=new Set([failedKey]),broken=boot(brokenStorage,'',blocked);
+ broken.document.querySelector('#resume-run').onclick();broken.document.querySelectorAll('[data-choice]')[0].onclick();
+ if(failedKey.endsWith('evidence-v1'))assert(!JSON.parse(brokenStorage.get('naiwa-dorm-endings-v1')||'[]').includes('lottery-winner'),'不能写出缺少证据的半条新成就');
+ const recovered=boot(brokenStorage);recovered.document.querySelector('#resume-run').onclick();
+ assert.equal(recovered.document.querySelector('#collection-count').textContent,'1/24');
+ recovered.document.querySelector('#collection-btn').onclick();recovered.document.querySelectorAll('[data-achievement]').find(b=>b.dataset.achievement==='lottery-winner').onclick();
+ assert(recovered.document.querySelector('#achievement-detail-body').innerHTML.includes('本局彩票记录'));
+}
+assert(mapUI.html().includes('<details class="campus-agenda'),'日程不再三张卡常驻在剧情前');
+console.log('通过：24项精简目标、锁定不剧透、旧称号独立保留、可点触发记录、详情返回、证据只读和部分存储失败恢复。');
+
+const finaleStorage=jackpotUI.storage.get('naiwa-dorm-finales-v1');assert(finaleStorage);assert(JSON.parse(finaleStorage)['lottery-winner'].facts.includes('彩票奖金 ¥1,000,000'));
+assert(jackpotUI.html().includes('class="ending-route-tag"'),'真正终局有可点标签');
+jackpotReload.document.querySelector('#achievement-detail-back').onclick();
+jackpotReload.document.querySelectorAll('[data-collection-tab]').find(b=>b.dataset.collectionTab==='finales').onclick();
+assert.equal(jackpotReload.document.querySelector('.modal-intro').textContent,'已发现 1 / 9');
+assert.equal((jackpotReload.document.querySelector('#collection-grid').innerHTML.match(/class="collection-item locked"/g)||[]).length,8);
+jackpotReload.document.querySelectorAll('[data-finale]')[0].onclick();assert(jackpotReload.document.querySelector('#achievement-detail-body').innerHTML.includes('彩票奖金'));
+jackpotReload.document.querySelector('#achievement-detail-back').onclick();assert.equal(jackpotReload.document.querySelector('.modal-intro').textContent,'已发现 1 / 9','详情返回对应的结局页');
+assert.equal(jackpotReload.storage.get('naiwa-dorm-finales-v1'),finaleStorage,'看结局详情不重写记录');
+assert(!ui.storage.has('naiwa-dorm-finales-v1'),'普通日终不冒充真正结局');
+const oldEndingBook=boot(new Map([['naiwa-dorm-endings-v1','["fail-energy"]']]));oldEndingBook.document.querySelector('#collection-btn').onclick();oldEndingBook.document.querySelectorAll('[data-collection-tab]').find(b=>b.dataset.collectionTab==='finales').onclick();assert.equal(oldEndingBook.document.querySelector('.modal-intro').textContent,'已发现 1 / 9');oldEndingBook.document.querySelectorAll('[data-finale]')[0].onclick();assert(oldEndingBook.document.querySelector('#achievement-detail-body').innerHTML.includes('未保存当时的触发记录'));
+console.log('通过：9种独立结局、真实终局标签、结局持久化与只读详情、旧终局兼容、普通日终不收录。');
+
+// A real eligible run offers a positive route without ending or collecting it automatically.
+const realResearch=require('./positive-endings.cjs').realResearch();
+const researchUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(realResearch)]]));researchUI.document.querySelector('#resume-run').onclick();
+assert.equal(researchUI.saved().phase,'dayEnd');assert(researchUI.G.valid(researchUI.saved()));
+assert(researchUI.html().includes('可达成的正向结局'));
+assert(!researchUI.storage.has('naiwa-dorm-finales-v1'),'只是满足科研条件时不提前收录结局');
+const chooseResearch=researchUI.document.querySelectorAll('[data-positive-finish]').find(b=>b.dataset.positiveFinish==='ending-research').onclick;
+const staleResearchContinue=researchUI.document.querySelector('#continue-day').onclick,staleResearchRetire=researchUI.document.querySelector('#retire-run').onclick;
+const qualifiedDayEnd=researchUI.storage.get('naiwa-dorm-run-v2');chooseResearch();
+assert.equal(researchUI.saved().phase,'ending');assert.equal(researchUI.saved().finalEnding,'ending-research');assert(researchUI.html().includes('科研成功'));assert(researchUI.html().includes('positive-card'));
+assert(researchUI.G.valid(researchUI.saved()));assert.equal(JSON.stringify(researchUI.saved().positiveEnding.base),qualifiedDayEnd);
+const finishedResearch=researchUI.storage.get('naiwa-dorm-run-v2');chooseResearch();staleResearchContinue();staleResearchRetire();assert.equal(researchUI.storage.get('naiwa-dorm-run-v2'),finishedResearch,'收尾后旧按钮不能重复结束或推进日期');
+const researchProof=researchUI.storage.get('naiwa-dorm-finales-v1');assert(JSON.parse(researchProof)['ending-research'].facts.some(f=>f.includes('实验室活动 18 次')));
+const researchReload=boot(researchUI.storage);researchReload.document.querySelector('#resume-run').onclick();assert.equal(researchReload.saved().finalEnding,'ending-research');assert.equal(researchReload.storage.get('naiwa-dorm-run-v2'),finishedResearch,'结局页面的自动升级不改写完整快照');
+researchReload.document.querySelectorAll('[data-ending-route]')[0].onclick();assert(researchReload.document.querySelector('#achievement-detail-body').innerHTML.includes('实验室活动 18 次'));researchReload.document.querySelector('#achievement-detail-back').onclick();assert.equal(researchReload.document.querySelector('.modal-intro').textContent,'已发现 1 / 9');
+assert.equal(researchReload.storage.get('naiwa-dorm-finales-v1'),researchProof,'刷新和看详情不重复发结局');
+const resumeCampus=researchReload.document.querySelector('#resume-positive').onclick;resumeCampus();assert.equal(researchReload.saved().day,realResearch.day+1);assert(!researchReload.saved().positiveEnding);assert.equal(researchReload.saved().phase,'choice');assert(researchReload.G.valid(researchReload.saved()));
+const afterPositiveContinue=researchReload.storage.get('naiwa-dorm-run-v2');resumeCampus();chooseResearch();staleResearchContinue();staleResearchRetire();assert.equal(researchReload.storage.get('naiwa-dorm-run-v2'),afterPositiveContinue,'结束和继续之后，任何旧回调都不可再次推进');
+assert.equal(researchReload.storage.get('naiwa-dorm-finales-v1'),researchProof,'继续生活仍保留已收集的正向结局');
+console.log('通过：真实正向结局的出现与选择、日终不强制结束、科研图鉴证据、刷新回放、继续校园生活、旧按钮重复点击隔离。');

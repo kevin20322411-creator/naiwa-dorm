@@ -11,7 +11,7 @@ function wageBonus(scene,choice){
  return pay>=20?4:pay>=14?3:2;
 }
 
-function enableCampusJobs(s){
+function startCampusJobs(s){
  if(!s?.campusLife||s.campusJobs||s.phase==='ending'||s.failed||s.lottery?.won)return s;
  if(s.school&&s.school.revision!==3)return s;
  // A job offered before the upgrade keeps its original rate until it resolves.
@@ -23,6 +23,15 @@ function enableCampusJobs(s){
  return{
   ...s,actions:[...s.actions,'jobs-v1'],
   campusJobs:{revision:1,base:JSON.parse(JSON.stringify(s))}
+ };
+}
+
+function enableCampusJobs(s){
+ const active=startCampusJobs(s);
+ if(!active?.campusJobs||active.campusJobs.rules===2||active.failed||active.phase==='ending'||active.lottery?.won)return active;
+ return{
+  ...active,actions:[...active.actions,'jobs-rules-v2'],
+  campusJobs:{...active.campusJobs,rules:2}
  };
 }
 
@@ -73,9 +82,16 @@ function restore(raw){
   if(!base)return null;
   const boundary=base.actions.length;
   if(raw.actions[boundary]!=='jobs-v1'||!same(raw.actions.slice(0,boundary),base.actions))return null;
-  let s=enableCampusJobs(base);
+  // Recreate the original rules first. Existing receipts keep their amounts.
+  let s=startCampusJobs(base);
   if(!s.campusJobs)return null;
   for(const action of raw.actions.slice(boundary+1)){
+   if(action==='jobs-rules-v2'){
+    const upgraded=enableCampusJobs(s);
+    if(upgraded===s)return null;
+    s=upgraded;
+    continue;
+   }
    const match=/^jobs-action:(.+)$/.exec(action);
    if(!match)return null;
    const decoded=JSON.parse(decodeURIComponent(match[1]));

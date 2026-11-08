@@ -1,6 +1,6 @@
 (function(root){
 'use strict';
-const browser=typeof module==='undefined'||!module.exports,G=browser?root.DormGame:require('./campus-jobs.js');
+const browser=typeof module==='undefined'||!module.exports,G=browser?root.DormGame:require('./wallet.js');
 // A presentation model over the released engine: browsing never changes a save.
 const places=[
  {id:'dorm',name:'宿舍',description:'回寝歇一会儿，也给朋友回条消息。'},

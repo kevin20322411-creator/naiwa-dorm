@@ -21,7 +21,7 @@ function choose(s,index){
  if(!s.lottery||s.eventId!=='lottery-ticket')return B.choose(s,index);
  if(s.phase!=='choice'||!Number.isInteger(index)||![0,1].includes(index))throw Error('当前不能选择');
  if(index===0&&s.stats.money<5)throw Error('饭钱不足');
- const scene=getScene(s),c=scene.choices[index],award=index===0?prize(random(s,'draw:'+s.step)):0,paid=index===0?5:0,room=150-(s.stats.money-paid),cash=Math.min(award,room),credit=award===1000000?0:Math.max(0,award-cash);
+ const scene=getScene(s),c=scene.choices[index],award=index===0?prize(random(s,'draw:'+s.step)):0,paid=index===0?5:0,room=B.moneyRoom(s.stats,paid),cash=Math.min(award,room),credit=award===1000000?0:Math.max(0,award-cash);
  const won=award===1000000,stats={...s.stats,money:won?s.stats.money-paid+award:s.stats.money-paid+cash};
  let result=index===1?c.result:award?'刮开之后，票面显示中了 '+award.toLocaleString('en-US')+' 元！'+(won?'奶娃再三核对，确认是 100 万大奖。获得结局「奶生赢家」，本局结束。':'奖金已经领到，奶娃把小票收好，继续今天的生活。'):'刮开了，是一张没有中奖的小票。五元花掉了，奶娃收好纸屑，继续今天的安排。';
  if(credit)result+='\n饭钱余额已满，余下 '+credit+' 元存入奖金余额，之后消费会自动补入。';
@@ -29,7 +29,7 @@ function choose(s,index){
  return{...s,stats,lottery:{...s.lottery,credit:s.lottery.credit+credit,won},phase:won?'ending':'outcome',finalEnding:won?winner.id:s.finalEnding,outcome:entry,log:[...s.log,entry],actions:[...s.actions,'c'+index],rhythm:{...s.rhythm,clock:minute(scene.time)+c.minutes,lastActivity:null}};
 }
 // Small prizes retain any amount above the normal wallet limit; nothing is discarded.
-function cashCredit(s,time){if(!s.lottery?.credit||s.failed||s.phase==='ending')return s;const paid=Math.min(s.lottery.credit,150-s.stats.money);if(paid<=0)return s;
+function cashCredit(s,time){if(!s.lottery?.credit||s.failed||s.phase==='ending')return s;const paid=Math.min(s.lottery.credit,B.moneyRoom(s.stats));if(paid<=0)return s;
  const entry={day:s.day,step:-1,eventId:'lottery-credit',index:0,time:time||clock(s.rhythm.clock),title:'奖金余额补入饭钱。',choice:'自动到账',result:'此前保留的奖金补入 '+paid+' 元。',changes:{money:paid},flags:{},project:0};return{...s,stats:{...s.stats,money:s.stats.money+paid},lottery:{...s.lottery,credit:s.lottery.credit-paid},log:[...s.log,entry]};
 }
 function next(s){if(s.lottery?.won)throw Error('本局已经结束');return arrive(B.next(cashCredit(s)));}

@@ -26,7 +26,36 @@ button:focus-visible, a:focus-visible, input:focus-visible, summary:focus-visibl
   outline: 3px solid #3f8b6899; outline-offset: 4px;
 }
 button { transition: background .16s, border-color .16s, box-shadow .16s, transform .16s; }
-button:not(:disabled):not(.campus-place):active { transform: translateY(1px); }
+.button-feedback {
+  transition: background .16s, border-color .16s, box-shadow .16s, transform .16s,
+    translate .18s cubic-bezier(.2,.7,.3,1), scale .14s cubic-bezier(.2,.7,.3,1);
+}
+.button-touch-host { position: relative; }
+.button-touch-surface {
+  position: absolute; inset: 0; display: block; overflow: hidden;
+  border-radius: inherit; pointer-events: none; user-select: none;
+}
+.button-touch-wave {
+  position: absolute; display: block; border-radius: 50%; background: currentColor;
+  pointer-events: none; transform: scale(0); opacity: .13;
+  animation: button-touch-ripple .46s cubic-bezier(.2,.6,.25,1) forwards;
+}
+.button-feedback .button-touch-surface,
+.button-feedback .button-touch-wave { margin: 0; padding: 0; border: 0; }
+@keyframes button-touch-ripple {
+  to { transform: scale(1); opacity: 0; }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .button-feedback-lift:hover:not(:disabled):not([aria-disabled="true"]) { translate: 0 -1.5px; }
+  .button-feedback-lift:active:not(:disabled):not([aria-disabled="true"]) { translate: 0 0; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .button-feedback-press:active:not(:disabled):not([aria-disabled="true"]) { scale: .985; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .button-feedback { translate: none; scale: none; }
+  .button-touch-surface { display: none; }
+}
 .topbar {
   max-width: 1400px; height: 82px; padding: 0 32px;
   border-bottom: 1px solid var(--ui-line);
@@ -46,6 +75,8 @@ button:not(:disabled):not(.campus-place):active { transform: translateY(1px); }
 .button:disabled { color: #7b857d; background: #e2e7de; border-color: #dbe1d6; box-shadow: none; }
 .back, .quit-btn { color: var(--ui-muted); font-size: 13px; min-height: 44px; }
 .site-footer { max-width: 1336px; font-size: 11px; color: var(--ui-muted); padding: 25px 0; }
+.music-attribution { display: block; margin-top: 6px; font-size: 10px; }
+.music-attribution a { color: inherit; text-underline-offset: 3px; }
 
 /* A warm, spacious entrance, with the original mascot as the visual focus. */
 .hero {
@@ -84,6 +115,9 @@ button:not(:disabled):not(.campus-place):active { transform: translateY(1px); }
 .stat { margin-bottom: 18px; }
 .stat-head { color: var(--ui-muted); font-size: 12px; margin-bottom: 7px; }
 .stat-head b { font-size: 18px; font-weight: 650; letter-spacing: -.4px; color: var(--ui-ink); }
+.stat-money .stat-head span { flex-shrink: 0; }
+.stat-money .stat-head b { min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.stat-money-wide .stat-head b { font-size: 15px; }
 .stat-track { height: 5px; background: #eaf0e5; }
 .stat-track i { background: #56866a; }
 .status-rule { font-size: 11px; color: var(--ui-muted); line-height: 1.7; margin: 6px 0 16px; }
@@ -232,6 +266,8 @@ dialog::backdrop { background: #122a2461; backdrop-filter: blur(6px); }
   .mobile-stats .stat { min-width: 0; padding: 10px 10px 9px; background: white; border: 1px solid var(--ui-line); border-radius: 11px; margin: 0; }
   .mobile-stats .stat-head { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; margin: 0 0 6px; font-size: 11px; line-height: 1.5; }
   .mobile-stats .stat-head b { font-size: 19px; }
+  .mobile-stats .stat-money .stat-head { margin-bottom: 0; }
+  .mobile-stats .stat-money-wide .stat-head b { font-size: 14px; }
   .mobile-stats .stat-track { height: 3px; }
   .daily-dashboard { grid-template-columns: 1fr; gap: 10px; }
   .satiety-card { padding: 11px 13px; margin-bottom: 16px; }
@@ -274,10 +310,12 @@ dialog::backdrop { background: #122a2461; backdrop-filter: blur(6px); }
   .site-footer { width: calc(100% - 40px); font-size: 11px; padding: 22px 0; }
 }
 @media (max-width:380px) {
-  .topbar { padding: 0 16px; }
+  .topbar { padding: 8px 16px; min-height: 68px; height: auto; flex-wrap: wrap; row-gap: 0; }
+  .brand { font-size: 17px; }
   .brand-group { gap: 5px; }
   .brand-version { border: 0; padding: 4px 1px; font-size: 9px; }
-  .top-actions { gap: 10px; }
+  .top-actions { gap: 8px; margin-left: auto; }
+  .top-actions .text-btn, .top-actions .sound-btn { font-size: 11px; }
   .game-layout { padding-left: 16px; padding-right: 16px; }
   .hero-actions .button { min-width: 128px; }
 }

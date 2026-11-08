@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
-const G=window.DormGame,E=window.DormExpressions,W=window.DormWorld,M=window.DormCampus,C=window.DormCanteen,S=window.DormSchoolUI,U=window.DormMajorUI,app=document.querySelector('#app'),saveKey='naiwa-dorm-run-v2',bookKey='naiwa-dorm-endings-v1';
-const RELEASE={version:'9.4',date:'2026.11.07',items:['新课表与选课','新增专业、实践与天赋','更新课堂配图','新增校园兼职，调高常规工资']};
+const G=window.DormGame,E=window.DormExpressions,W=window.DormWorld,M=window.DormCampus,C=window.DormCanteen,S=window.DormSchoolUI,U=window.DormMajorUI,A=window.DormAchievementBook,F=window.DormEndingBook,app=document.querySelector('#app'),saveKey='naiwa-dorm-run-v2',bookKey='naiwa-dorm-endings-v1',evidenceKey='naiwa-dorm-achievement-evidence-v1',backgroundKey='naiwa-dorm-backgrounds-v1',finalesKey='naiwa-dorm-finales-v1';
+const RELEASE={version:'9.5',date:'2026.11.09',items:['新增正向结局','整理成就与结局图鉴','更新校园首页和日程布局','新增背景音乐与按钮反馈','修复存档与就诊流程']};
 const read=(k,fallback)=>{try{return JSON.parse(localStorage.getItem(k))??fallback;}catch{return fallback;}};
 const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch{return false;}};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -15,7 +15,20 @@ let draftSelection=defaultCourseSelection(),schoolOptInSelection=defaultCourseSe
 function defaultCourseSelection(){return{electives:['elective-photo'],pe:'pe-badminton'};}
 function copyCourseSelection(value){return{electives:[...(value?.electives||[])],pe:value?.pe||''};}
 function courseValidation(majorId,selection){return G.validateCourseSelection?G.validateCourseSelection(majorId,selection):{valid:true,errors:[],conflicts:[]};}
-let seen=read(bookKey,[]);if(!Array.isArray(seen))seen=[];seen=[...new Set(seen.filter(id=>G.endings.some(e=>e.id===id)))];
+let seen=read(bookKey,[]);if(!Array.isArray(seen))seen=[];seen=[...new Set(seen.filter(id=>G.endings.some(e=>e.id===id)||A.items.some(e=>e.id===id)))];
+let achievementEvidence=read(evidenceKey,{});if(!achievementEvidence||typeof achievementEvidence!=='object'||Array.isArray(achievementEvidence))achievementEvidence={};
+achievementEvidence=Object.fromEntries(Object.entries(achievementEvidence).filter(([id,p])=>(G.endings.some(e=>e.id===id)||A.items.some(e=>e.id===id))&&typeof p?.rule==='string'&&Array.isArray(p?.facts)));
+// A saved proof is also a durable unlock, even if the older ids-only key failed to save.
+const provenIds=Object.keys(achievementEvidence).filter(id=>A.items.some(e=>e.id===id)&&typeof achievementEvidence[id]?.rule==='string'&&Array.isArray(achievementEvidence[id]?.facts));
+seen=[...new Set([...seen,...provenIds])];
+let achievementSavePending=false;
+let backgroundAwards=read(backgroundKey,[]);if(!Array.isArray(backgroundAwards))backgroundAwards=[];
+backgroundAwards=[...new Set([...backgroundAwards,...seen].filter(id=>['artist','inventor','athlete','week'].includes(id)))];
+let collectionTab='current',achievementReturn='collection';
+let finales=read(finalesKey,{});if(!finales||typeof finales!=='object'||Array.isArray(finales))finales={};
+finales=Object.fromEntries(Object.entries(finales).filter(([id,p])=>F.items.some(e=>e.id===id)&&p&&typeof p==='object'&&Array.isArray(p.facts)));
+for(const e of F.items)if(seen.includes(e.id)&&!finales[e.id])finales[e.id]={id:e.id,legacy:true,rule:e.rule,facts:[]};
+let finaleSavePending=false;
 function readSharedStart(){
  try{
   const params=new URLSearchParams((window.location?.search||'').replace(/\\&/g,'&'));
@@ -37,24 +50,38 @@ if(!Array.isArray(recent))recent=[];if(!Array.isArray(seenEvents))seenEvents=[];
 const awardVoice=new Audio(asset('eat-ganbadie.mp3'));awardVoice.volume=.25;awardVoice.preload='auto';
 const laugh=new Audio(asset('laugh.mp3'));laugh.volume=.22;laugh.preload='auto';
 let activeVoice=null,voiceTimer,cardUrl=null,majorAudio=null;
-function stopMajorAudio(){if(!majorAudio)return;const context=majorAudio;majorAudio=null;try{const closing=context.close();if(closing?.catch)closing.catch(()=>{});}catch{}}
+function stopMajorAudio(){if(!majorAudio)return;const context=majorAudio;majorAudio=null;window.DormMusic?.duck('melody',false);try{const closing=context.close();if(closing?.catch)closing.catch(()=>{});}catch{}}
 function playMajorMelody(preview,current){
  if(!current())return;if(!sound){toast('音效已关闭');return;}
  const AudioContext=window.AudioContext||window.webkitAudioContext;if(!AudioContext){toast('当前浏览器暂不支持试听');return;}
- stopMajorAudio();let context;try{context=new AudioContext();majorAudio=context;const play=()=>{if(!current()||!sound||majorAudio!==context){if(majorAudio===context)stopMajorAudio();return;}let at=context.currentTime+.035;const beat=60/(Number(preview.bpm)||108);for(const note of preview.notes||[]){const duration=Math.max(.1,Math.min(4,Number(note.beats)||1))*beat;if(Number(note.frequency)>0){const oscillator=context.createOscillator(),gain=context.createGain();oscillator.type='sine';oscillator.frequency.value=Number(note.frequency);gain.gain.setValueAtTime(0,at);gain.gain.linearRampToValueAtTime(.12,at+.02);gain.gain.setValueAtTime(.12,at+Math.max(.02,duration-.06));gain.gain.linearRampToValueAtTime(0,at+duration);oscillator.connect(gain);gain.connect(context.destination);oscillator.start(at);oscillator.stop(at+duration+.02);}at+=duration;}setTimeout(()=>{if(majorAudio===context)stopMajorAudio();},Math.ceil((at-context.currentTime+.1)*1000));};if(context.state==='suspended')context.resume().then(play).catch(()=>{stopMajorAudio();toast('试听暂时无法播放');});else play();}catch{stopMajorAudio();toast('试听暂时无法播放');}
+ stopMajorAudio();let context;try{context=new AudioContext();majorAudio=context;window.DormMusic?.duck('melody',true);const play=()=>{if(!current()||!sound||majorAudio!==context){if(majorAudio===context)stopMajorAudio();return;}let at=context.currentTime+.035;const beat=60/(Number(preview.bpm)||108);for(const note of preview.notes||[]){const duration=Math.max(.1,Math.min(4,Number(note.beats)||1))*beat;if(Number(note.frequency)>0){const oscillator=context.createOscillator(),gain=context.createGain();oscillator.type='sine';oscillator.frequency.value=Number(note.frequency);gain.gain.setValueAtTime(0,at);gain.gain.linearRampToValueAtTime(.12,at+.02);gain.gain.setValueAtTime(.12,at+Math.max(.02,duration-.06));gain.gain.linearRampToValueAtTime(0,at+duration);oscillator.connect(gain);gain.connect(context.destination);oscillator.start(at);oscillator.stop(at+duration+.02);}at+=duration;}setTimeout(()=>{if(majorAudio===context)stopMajorAudio();},Math.ceil((at-context.currentTime+.1)*1000));};if(context.state==='suspended')context.resume().then(play).catch(()=>{if(majorAudio!==context)return;stopMajorAudio();if(current()&&sound)toast('试听暂时无法播放');});else play();}catch{stopMajorAudio();toast('试听暂时无法播放');}
 }
-function stopVoice(){clearTimeout(voiceTimer);if(activeVoice){activeVoice.pause();activeVoice.currentTime=0;activeVoice=null;}}
+function stopVoice(){clearTimeout(voiceTimer);window.DormMusic?.duck('voice',false);if(activeVoice){activeVoice.pause();activeVoice.currentTime=0;activeVoice=null;}}
 function speak(kind='award',preview=false){
  if(!sound)return;stopVoice();activeVoice=kind==='failure'?laugh:awardVoice;
+ window.DormMusic?.duck('voice',true);
  activeVoice.currentTime=0;activeVoice.play().catch(()=>{if(preview)toast('音效暂时无法播放，请再点一次。');});
  voiceTimer=setTimeout(stopVoice,kind==='failure'?1600:2200);
 }
 function clearCard(){stopMajorAudio();if(cardUrl){URL.revokeObjectURL(cardUrl);cardUrl=null;}}
 function toast(s){const t=document.querySelector('#toast');t.textContent=s;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2400);}
-function persist(){if(state&&G.upgradeTimetable)state=G.upgradeTimetable(state);if(state&&G.enableMajorLife)state=G.enableMajorLife(state);if(state&&G.enableTalentEffects)state=G.enableTalentEffects(state);if(state&&G.enableCampusJobs)state=G.enableCampusJobs(state);if(state&&!write(saveKey,state))toast('当前浏览器不能保存进度，请保持页面打开。');}
+function enableCurrentMoneyRules(s){
+ if(G.enableCampusJobs)s=G.enableCampusJobs(s);
+ if(G.enableUnlimitedMoney)s=G.enableUnlimitedMoney(s);
+ return s;
+}
+function persist(){
+ if(!state)return;
+ if(G.upgradeTimetable)state=G.upgradeTimetable(state);
+ if(G.enableMajorLife)state=G.enableMajorLife(state);
+ if(G.enableTalentEffects)state=G.enableTalentEffects(state);
+ state=enableCurrentMoneyRules(state);
+ if(!write(saveKey,state))toast('当前浏览器不能保存进度，请保持页面打开。');
+}
 function goTop(){window.scrollTo({top:0,behavior:'instant'});}
 function soundUI(){const b=document.querySelector('#sound-btn');b.textContent=sound?'音效开':'音效关';b.setAttribute('aria-pressed',String(sound));b.setAttribute('aria-label',sound?'关闭音效':'开启音效');}
-function updateBook(){document.querySelector('#collection-count').textContent=seen.length+'/'+G.endings.length;}
+function currentAchievementCount(){return A.items.filter(e=>seen.includes(e.id)).length;}
+function updateBook(){document.querySelector('#collection-count').textContent=currentAchievementCount()+'/'+A.items.length;}
 function showRelease(){
  const modal=document.querySelector('#release-modal');
  document.querySelector('#release-version').textContent='v'+RELEASE.version;
@@ -65,7 +92,15 @@ function showRelease(){
 }
 function dismissRelease(){write('naiwa-dorm-release-hidden',document.querySelector('#release-skip').checked?RELEASE.version:null);document.querySelector('#release-modal').close();}
 function hungerHTML(){const v=G.fullness?.(state);return v===null||v===undefined?'':'<section class="satiety-card" aria-label="饱食度"><span>饱食度</span><div class="satiety-track" role="progressbar" aria-label="饱食度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.round(v)+'"><i style="width:'+v+'%;background:'+(v<20?'#cb8a60':'#99ad74')+'"></i></div><b>'+Math.round(v)+'</b></section>'; }
-function statHTML(s){return G.statKeys(s).map(k=>`<div class="stat ${s[k]<(k==='money'?8:20)?'warning':''}"><div class="stat-head"><span>${G.labels[k]}</span><b>${k==='money'?'¥':''}${s[k]}</b></div><div class="stat-track"><i style="width:${Math.min(100,s[k])}%"></i></div></div>`).join('');}
+function statHTML(s){
+ return G.statKeys(s).map(k=>{
+  if(k==='money'){
+   return `<div class="stat stat-money${s.money<8?' warning':''}${s.money>9999?' stat-money-wide':''}"><div class="stat-head"><span>${G.labels.money}</span><b>¥${s.money}</b></div></div>`;
+  }
+  const width=Math.max(0,Math.min(100,s[k]));
+  return `<div class="stat ${s[k]<20?'warning':''}"><div class="stat-head"><span>${G.labels[k]}</span><b>${s[k]}</b></div><div class="stat-track"><i style="width:${width}%"></i></div></div>`;
+ }).join('');
+}
 function startDraft(useShared=false){const shared=useShared&&sharedStart&&!sharedStartUsed?sharedStart:null;selected=shared?[...shared.traits]:[];draftSeed=shared?shared.seed:Date.now()>>>0;draftBatchSeed=draftSeed;offered=G.newDraft(draftBatchSeed,selected);draftName=state?.name||'';draftBackground=shared?.backgroundId||'freshman';draftSharedBackground=shared?.backgroundId||null;draftMajor=shared?.majorId||'cs';draftSelection=copyCourseSelection(shared?.selection||defaultCourseSelection());traitsView();goTop();}
 function canShareStart(s){return s&&G.selectedTraits(s).length===3;}
 async function shareStart(s){
@@ -82,7 +117,7 @@ async function shareStart(s){
  try{await navigator.clipboard.writeText(link);toast('开局链接已复制，发给室友一起试试。');}
  catch{toast('复制暂不可用，请再试一次。');}
 }
-function backgroundHTML(){const unlocked=new Set(G.availableBackgrounds(seen).map(b=>b.id));return '<section class="background-picker" aria-label="入学背景"><h2>入学背景</h2><div class="background-options">'+G.backgrounds.map(b=>{const trial=b.id===draftSharedBackground&&!unlocked.has(b.id),locked=!unlocked.has(b.id)&&!trial;return '<button class="background-option '+(draftBackground===b.id?'selected':'')+'" data-background="'+b.id+'" aria-pressed="'+(draftBackground===b.id)+'" '+(locked?'disabled':'')+'><strong>'+esc(b.name)+'</strong><span>'+esc(locked?'完成相关经历后解锁':b.desc)+'</span>'+(trial?'<small>本次分享体验</small>':'')+'</button>';}).join('')+'</div></section>';}
+function backgroundHTML(){const unlocked=new Set(G.availableBackgrounds([...seen,...backgroundAwards]).map(b=>b.id));return '<section class="background-picker" aria-label="入学背景"><h2>入学背景</h2><div class="background-options">'+G.backgrounds.map(b=>{const trial=b.id===draftSharedBackground&&!unlocked.has(b.id),locked=!unlocked.has(b.id)&&!trial;return '<button class="background-option '+(draftBackground===b.id?'selected':'')+'" data-background="'+b.id+'" aria-pressed="'+(draftBackground===b.id)+'" '+(locked?'disabled':'')+'><strong>'+esc(b.name)+'</strong><span>'+esc(locked?'完成相关经历后解锁':b.desc)+'</span>'+(trial?'<small>本次分享体验</small>':'')+'</button>';}).join('')+'</div></section>';}
 function sharedSummary(){
  const bg=G.backgrounds.find(b=>b.id===sharedStart.backgroundId),major=G.majors.find(m=>m.id===sharedStart.majorId);
  const names=sharedStart.traits.map(id=>G.traits.find(t=>t.id===id).name);
@@ -92,9 +127,17 @@ function home(){
  renderEpoch++;clearCard();
  view='home';
  const pendingShared=sharedStart&&!sharedStartUsed;
- app.innerHTML=`<section class="hero"><div class="hero-copy"><p class="hero-kicker">重生之</p><h1>我在宿舍<span>当奶蛙。</span></h1>${pendingShared?sharedSummary():''}<div class="hero-actions"><button class="button dark" id="new-run">${pendingShared?'体验这个开局':'开始新生活'}</button>${state?'<button class="button white" id="resume-run">'+(pendingShared?'继续我的存档':state.phase==='ending'?'上次结局':state.version<6?'继续上次（原规则）':'继续上次')+'</button>':''}</div>${pendingShared?'<button class="text-btn start-share" id="random-run">开始随机新生活</button>':canShareStart(state)?'<button class="text-btn start-share" id="share-start">分享同一起点</button>':''}</div><div class="hero-visual"><img class="hero-frog" src="${asset('frog.png')}" alt="准备入住大学宿舍的奶蛙"></div></section>`;
+ app.innerHTML=`<section class="hero"><div class="hero-copy"><p class="hero-kicker">重生之</p><h1>我在宿舍<span>当奶蛙。</span></h1>${pendingShared?sharedSummary():''}<div class="hero-actions"><button class="button dark" id="new-run">${pendingShared?'体验这个开局':'开始新生活'}</button>${state?'<button class="button white" id="resume-run">'+(pendingShared?'继续我的存档':state.phase==='ending'?'上次结局':state.version<6?'继续上次（原规则）':'继续上次')+'</button>':''}</div>${pendingShared?'<button class="text-btn start-share" id="random-run">开始随机新生活</button>':canShareStart(state)?'<button class="text-btn start-share" id="share-start">分享同一起点</button>':''}</div><div class="hero-visual">${window.DormHomeScene.render()}<img class="hero-frog" src="${asset('frog.png')}" alt="准备入住大学宿舍的奶蛙"></div></section>`;
  document.querySelector('#new-run').onclick=()=>startDraft(true);
- if(state)document.querySelector('#resume-run').onclick=()=>{if(state&&G.enableCampusJobs){const upgraded=G.enableCampusJobs(state);if(upgraded!==state){state=upgraded;write(saveKey,state);}}gameView();goTop();};
+ if(state)document.querySelector('#resume-run').onclick=()=>{
+  const upgraded=enableCurrentMoneyRules(state);
+  if(upgraded!==state){
+   state=upgraded;
+   if(!write(saveKey,state))toast('当前浏览器不能保存进度，请保持页面打开。');
+  }
+  gameView();
+  goTop();
+ };
  if(pendingShared)document.querySelector('#random-run').onclick=()=>startDraft(false);
  if(canShareStart(state)&&!pendingShared)document.querySelector('#share-start').onclick=()=>shareStart(state);
 }
@@ -130,11 +173,32 @@ function romanceHTML(){
  const note=bond&&(known.length||promise)?'<div class="relationship-note">'+(known.length?'<p class="preference-diary">喜好手账</p><p class="relationship-known">'+known.map(esc).join(' · ')+'</p>':'')+(promise?'<p class="relationship-promise">约好：'+esc(promise.label)+'<span>第 '+promise.earliestDay+(promise.dueDay!==promise.earliestDay?'—'+promise.dueDay:'')+' 天</span></p>':'')+'</div>':'';
  return '<section class="romance-card" aria-label="与奶粉的亲密度"><div class="romance-person"><img class="naiwa-pink" src="'+asset('frog-wave.png')+'" alt="奶粉"><div><strong>'+(r.dating?'你的宝宝':'奶粉')+'</strong><span>'+ (r.dating?'恋人':r.intimacy>=80?'心意渐明':'慢慢认识')+'</span></div><b>亲密度 '+r.intimacy+' <small>/ 100</small></b></div><div class="romance-meter" role="progressbar" aria-label="亲密度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+r.intimacy+'"><i style="width:'+r.intimacy+'%"></i></div>'+note+'</section>';
 }
-function collectRomanceAwards(){
- const unlocked=(G.romanceAwards?.(state)||[]).filter(e=>!seen.includes(e.id));
- if(!unlocked.length)return;
- seen.push(...unlocked.map(e=>e.id));write(bookKey,seen);updateBook();showUnlocks(unlocked);speak('award');
+function recordAchievements(){
+ if(!state)return [];
+ if(achievementSavePending)saveAchievementBook();
+ // Background eligibility stays separate from the smaller achievement catalogue.
+ const earnedBackgrounds=G.achievements(state).map(e=>e.id).filter(id=>['artist','inventor','athlete','week'].includes(id));
+ const nextBackgrounds=[...new Set([...backgroundAwards,...earnedBackgrounds])];
+ if(nextBackgrounds.length!==backgroundAwards.length){backgroundAwards=nextBackgrounds;write(backgroundKey,backgroundAwards);}
+ const unlocked=A.unlocked(state).filter(e=>!seen.includes(e.id));
+ if(!unlocked.length)return [];
+ for(const e of unlocked){if(achievementEvidence[e.id])continue;const proof=A.describe(e.id,state);achievementEvidence[e.id]={day:state.day,name:state.name,seed:state.seed,rule:proof.rule,facts:proof.facts};}
+ seen.push(...unlocked.map(e=>e.id));
+ if(!saveAchievementBook())toast('成就暂时未能保存，请保留此页面。');
+ updateBook();return unlocked;
 }
+function saveAchievementBook(){
+ const evidenceSaved=write(evidenceKey,achievementEvidence);
+ const bookSaved=evidenceSaved&&write(bookKey,seen);
+ achievementSavePending=!bookSaved;return bookSaved;
+}
+function recordFinale(){
+ const proof=F.capture(state);if(!proof)return null;
+ if(!finales[proof.id]||finales[proof.id].legacy){finales[proof.id]=proof;finaleSavePending=true;}
+ if(finaleSavePending)finaleSavePending=!write(finalesKey,finales);
+ return proof;
+}
+function collectAchievements(){const unlocked=recordAchievements();if(unlocked.length){showUnlocks(unlocked);if(!state.failed)speak('award');}}
 function choiceText(c){
  const text=state?.eventId==='love-active-ask-chat'?c.text.replace('只发一句“在吗”，收到回复又不接话','聊到一半刷起手机，迟迟没有回复'):c.text;const price=Math.max(0,-(c.mods.money||0));return text+(price&&!text.includes('¥')?' · ¥'+price:'')+(c.minutes?' · '+c.minutes+' 分钟':'');
 }
@@ -168,7 +232,7 @@ function freeTimeHTML(){
 
 function statusPanelHTML(){return `<aside class="status-panel"><div class="player-title"><img class="player-avatar" src="${asset('frog.png')}" alt=""><b>${esc(state.name)}</b></div><div class="stats">${statHTML(state.stats)}</div><p class="status-rule">电量、学业、健康或心情归零即结束。</p><div class="trait-chips">${G.selectedTraits(state).map(id=>`<span>${esc(G.traits.find(t=>t.id===id).name)}</span>`).join('')}</div><button class="quit-btn" id="pause-run">返回首页</button></aside>`;}
 function normalSceneHTML(scene,expression,callback){return `${scene.majorScene||(scene.schoolScene&&state.phase==='outcome'&&state.outcome?.schoolWork)?'':scene.schoolScene&&S?S.sceneArtHTML(scene,state.school?.majorId):`<div class="scene-art expression-art ${scene.kind==='三餐'?'meal-art':scene.romanceScene||scene.mouseScene?'romance-art'+(scene.mouseScene?' mouse-art':''):''}"><span class="scene-doodle" aria-hidden="true">${scene.emoji}</span>${state.phase==='choice'&&scene.bubble?'<div class="scene-bubble">'+esc(scene.bubble)+'</div>':''}<img class="${expression.original?'original-expression':'expression-sticker'}" src="${asset(expression.file)}" alt="${esc(expression.alt)}">${scene.romanceScene?`<img class="naiwa-pink" src="${asset('frog-wave.png')}" alt="奶粉">`:""}${scene.mouseScene?`<img class="scene-naishu" src="${asset('naishu-cutout.png')}" alt="奶鼠">`:""}</div>`}<div class="story"><h1 tabindex="-1" id="scene-title">${esc(narrative(scene.title))}</h1>${state.phase==='choice'?`${callback?`<div class="callback">${esc(callback)}</div>`:''}<p>${esc(narrative(scene.schoolScene?scene.text.replace(/^第 \d+ 周 [^。]+。今天的小目标：/,''):scene.text))}</p><div class="choices">${scene.choices.map((c,i)=>`<button class="choice" data-choice="${i}" ${c.disabledReason||(c.mods.money||0)<-state.stats.money?'disabled':''}><span class="choice-code">${'ABCDE'[i]}</span><span class="choice-content"><strong>${esc(choiceText(c))}</strong>${choiceNotice(c)?`<span class="choice-costs">${choiceNotice(c)}</span>`:""}</span><span class="choice-arrow" aria-hidden="true">›</span></button>`).join('')}</div><p class="mobile-rule">电量、学业、健康或心情归零即结束。</p>`:`<div class="outcome" role="status"><span class="outcome-label">${state.outcome.majorWork?'专业实践完成':scene.schoolScene?(state.outcome.schoolMakeup?'补学完成':'课堂记录'):state.outcome.miniGame?'活动完成':'选择 '+('ABCDE'[state.outcome.index]||'')}</span><p>${esc(narrative(state.outcome.result)).replace(/\n/g,'<br>')}</p><div class="changes">${state.outcome.intimacyChange?'<span class="affection-change">亲密度 '+(state.outcome.intimacyChange>0?'+':'')+state.outcome.intimacyChange+'</span>':''}${state.outcome.project?'<span>课设 +'+state.outcome.project+'</span>':''}${G.keys.filter(k=>state.outcome.changes[k]).map(k=>`<span class="${state.outcome.changes[k]<0?'negative':''}">${G.labels[k]} ${state.outcome.changes[k]>0?'+':''}${state.outcome.changes[k]}</span>`).join('')}</div>${schoolWorkHTML()}${state.failed?'<div class="failure-notice">'+(state.failed==='fail-energy'?'电量归零，本局结束。':['fail-health','fail-mood'].includes(state.failed)?'健康或心情归零，奶蛙长眠。':state.failed==='fail-mouse-family'?'奶鼠全网呼叫奶家人，本局结束。':state.failed==='fail-course'?'两次缺交课设，本学期转入重修。':'学业归零，触发劝退。')+'</div>':''}<button class="button dark" id="next-scene">${state.failed||state.lottery?.won?'查看结局':scene.schoolScene||scene.majorScene?'继续':state.step===7?'今日结算':scene.kind==='三餐'&&!state.outcome.flags.missedMeal?'吃好了':'继续'}</button></div>`}</div>`;}
-function openCurrentMini(){const p=state.miniGames?.pending;if(!p)return;const a=G.miniDefinitions[p.key];const settle=value=>{if(state?.miniGames?.pending?.token!==p.token)return;state=G.completeMini(state,value);persist();};const done=value=>{try{settle(value);gameView();collectRomanceAwards();}catch{toast('这次成绩没有结算，请再试一次。');gameView();}};window.DormMiniUI.open({key:p.key,token:p.token,title:a[1].split(' ·')[0],pink:!!state.romance?.connected,cost:a[2]+' 分钟'+(a[3]?' · ¥'+a[3]:''),onResult:settle,onCancel:()=>{if(state?.miniGames?.pending?.token===p.token){state=G.cancelMini(state);persist();}gameView();},onDone:done});}
+function openCurrentMini(){const p=state.miniGames?.pending;if(!p)return;const a=G.miniDefinitions[p.key];const settle=value=>{if(state?.miniGames?.pending?.token!==p.token)return;state=G.completeMini(state,value);persist();};const done=value=>{try{settle(value);gameView();collectAchievements();}catch{toast('这次成绩没有结算，请再试一次。');gameView();}};window.DormMiniUI.open({key:p.key,token:p.token,title:a[1].split(' ·')[0],pink:!!state.romance?.connected,cost:a[2]+' 分钟'+(a[3]?' · ¥'+a[3]:''),onResult:settle,onCancel:()=>{if(state?.miniGames?.pending?.token===p.token){state=G.cancelMini(state);persist();}gameView();},onDone:done});}
 function miniCollectionHTML(){if(!state.miniGames)return '';const p=state.miniGames.prizes;return '<section class="mini-prizes"><strong>校园收藏</strong><span>奶蛙 '+p.frog+'</span><span>奶粉 '+p.pink+'</span><span>奶鼠 '+p.mouse+'</span><button class="text-btn" id="open-mini-album">相册 ↗</button></section>';}
 function bindCourseEditor(origin,current){
  document.querySelectorAll('[data-course-edit]').forEach(b=>b.onclick=()=>{
@@ -208,6 +272,13 @@ function schoolModel(){if(!S||!G.schoolView||!state?.school)return null;try{retu
 function schoolCardHTML(){return S&&G.schoolView?S.cardHTML(schoolModel()):'';}
 function majorModel(){return U&&G.majorView&&state?G.majorView(state):null;}
 function majorCardHTML(){return U?.cardHTML(majorModel())||'';}
+function agendaHTML(){
+ const model=schoolModel(),next=model?.next,t=G.task?.(state),late=t&&t.daysLeft<=1&&t.progress<t.target;
+ const attendance=model?.records?.some(r=>r.risk>=4),urgent=late||attendance;
+ const label=next?((next.day!==state.day?'第 '+next.day+' 天 · ':'')+next.time+' '+next.name):model?'今天没有待上课程':'我的课表';
+ const alert=late?'课设即将截止':attendance?'留意缺勤记录':'';
+ return '<details class="campus-agenda'+(urgent?' is-urgent':'')+'"><summary class="agenda-summary"><span class="agenda-label">校园日程</span><span class="agenda-next">'+esc(label)+'</span>'+(alert?'<span class="agenda-alert">'+esc(alert)+'</span>':'')+'<span class="agenda-chevron" aria-hidden="true">⌄</span></summary><div class="daily-dashboard">'+schoolCardHTML()+majorCardHTML()+taskHTML()+'</div></details>';
+}
 function bindMajorOpen(current){
  document.querySelectorAll('[data-major-listen-work]').forEach(b=>b.onclick=()=>{if(!current())return;try{playMajorMelody(JSON.parse(decodeURIComponent(b.dataset.majorListenWork)),current);}catch{toast('这段旋律暂时无法试听');}});
  document.querySelectorAll('[data-major-start]').forEach(b=>b.onclick=()=>{if(!current()||b.disabled)return;try{state=G.startMajor(state);persist();gameView();goTop();}catch(error){toast(error?.message||'完成眼前的安排后，再来试试。');}});
@@ -216,7 +287,7 @@ function bindMajorOpen(current){
 function majorInteractionView(){
  const renderedState=state,epoch=renderEpoch,model=majorModel(),current=()=>view==='game'&&state===renderedState&&renderEpoch===epoch&&!!state.majorLife?.pending;
  app.innerHTML='<div class="game-layout">'+statusPanelHTML()+'<section class="game-main"><div class="mobile-stats" style="--stat-count:'+G.statKeys(state.stats).length+'">'+statHTML(state.stats)+'</div>'+hungerHTML()+U.interactionHTML(model)+'</section></div>';
- const action=(name,value)=>{if(!current())return;try{state=G.majorAct(state,name,value);persist();gameView();}catch(error){toast(error?.message||'这次修改没有保存，请再试一次。');}};
+ const action=(name,value)=>{if(!current())return;try{state=G.majorAct(state,name,value);persist();gameView();collectAchievements();}catch(error){toast(error?.message||'这次修改没有保存，请再试一次。');}};
  document.querySelectorAll('[data-major-option]').forEach(b=>b.onclick=()=>{if(!current())return;const [field,value]=b.dataset.majorOption.split('|');action('set',{field,value});});
  document.querySelectorAll('[data-major-token]').forEach(b=>b.onclick=()=>{if(!current())return;action('set',{field:'token',value:b.dataset.majorToken});});
  const listen=document.querySelector('#major-listen');if(listen)listen.onclick=()=>{if(current())playMajorMelody(model.pending.preview,current);};
@@ -249,7 +320,7 @@ function schoolView(){
 function mapView(){
  clearCard();if(!state||['ending','dayEnd'].includes(state.phase)){gameView();return;}
  renderEpoch++;view='map';const renderedState=state,epoch=renderEpoch,model=W.model(state);if(!model.places.some(p=>p.id===campusPlace))campusPlace=model.currentId;const selected=campusPlace;
- app.innerHTML='<div class="game-layout map-game-layout">'+statusPanelHTML()+'<section class="game-main campus-main"><div class="mobile-stats" style="--stat-count:'+G.statKeys(state.stats).length+'">'+statHTML(state.stats)+'</div>'+hungerHTML()+schoolCardHTML()+majorCardHTML()+M.render(state,model,selected,{asset,esc})+'</section></div>';
+ app.innerHTML='<div class="game-layout map-game-layout">'+statusPanelHTML()+'<section class="game-main campus-main"><div class="mobile-stats" style="--stat-count:'+G.statKeys(state.stats).length+'">'+statHTML(state.stats)+'</div>'+hungerHTML()+agendaHTML()+M.render(state,model,selected,{asset,esc})+'</section></div>';
  const current=()=>view==='map'&&state===renderedState&&renderEpoch===epoch;bindSchoolOpen('map',current);
  bindMajorOpen(current);
  document.querySelector('#pause-run').onclick=()=>{if(current()){home();goTop();}};
@@ -271,38 +342,47 @@ function gameView(){
  if(!seenEvents.includes(scene.id)){seenEvents.push(scene.id);write('naiwa-dorm-events-v2',seenEvents);}
  recent=recent.filter(id=>id!==scene.id).concat(scene.id).slice(-24);write('naiwa-dorm-recent-v2',recent);
  const callback=scene.callback?.replace('前情后续 · 这件事和你此前的经历或当前状态有关。','').trim();
- app.innerHTML=`<div class="game-layout">${statusPanelHTML()}<section class="game-main"><div class="mobile-stats" style="--stat-count:${G.statKeys(state.stats).length}">${statHTML(state.stats)}</div>${hungerHTML()}<div class="daily-dashboard">${schoolCardHTML()}${majorCardHTML()}${taskHTML()}</div>${miniCollectionHTML()}${openingBuffHTML()}${lotteryCreditHTML()}${illnessHTML()}${careHTML()}${romanceHTML()}<div class="scene-campus-nav"><button id="campus-open" class="campus-open">校园地图 <span aria-hidden="true">↗</span></button></div><div class="scene-header"><span class="scene-time">${esc(scene.time)} · ${esc(scene.place)}${scene.schoolScene?'<span class="school-course-label">'+esc(scene.categoryLabel||({pe:'体育课',elective:'选修课',common:'公共课'}[scene.category])||'专业课')+'</span>':''}</span><span class="scene-step">第 ${state.day} 天 · ${sceneProgress()}</span></div>${scene.kind==='三餐'?C.render(state,scene,{asset,esc,narrative,stall:mealStall}):normalSceneHTML(scene,expression,callback)}${freeTimeHTML()}</section></div>`;
+ app.innerHTML=`<div class="game-layout">${statusPanelHTML()}<section class="game-main"><div class="mobile-stats" style="--stat-count:${G.statKeys(state.stats).length}">${statHTML(state.stats)}</div>${hungerHTML()}${agendaHTML()}${miniCollectionHTML()}${openingBuffHTML()}${lotteryCreditHTML()}${illnessHTML()}${careHTML()}${romanceHTML()}<div class="scene-campus-nav"><button id="campus-open" class="campus-open">校园地图 <span aria-hidden="true">↗</span></button></div><div class="scene-header"><span class="scene-time">${esc(scene.time)} · ${esc(scene.place)}${scene.schoolScene?'<span class="school-course-label">'+esc(scene.categoryLabel||({pe:'体育课',elective:'选修课',common:'公共课'}[scene.category])||'专业课')+'</span>':''}</span><span class="scene-step">第 ${state.day} 天 · ${sceneProgress()}</span></div>${scene.kind==='三餐'?C.render(state,scene,{asset,esc,narrative,stall:mealStall}):normalSceneHTML(scene,expression,callback)}${freeTimeHTML()}</section></div>`;
  bindSchoolOpen('game',()=>view==='game'&&state===renderedState&&renderEpoch===renderedEpoch);
  bindMajorOpen(()=>view==='game'&&state===renderedState&&renderEpoch===renderedEpoch);
  document.querySelector('#pause-run').onclick=()=>{if(view==='game'&&state===renderedState&&renderEpoch===renderedEpoch){home();goTop();}};
  document.querySelector('#campus-open').onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch)return;campusPlace=W.currentPlace(state);mapView();goTop();};
  const mapShortcut=document.querySelector('#campus-shortcut');if(mapShortcut)mapShortcut.onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch)return;campusPlace=W.currentPlace(state);mapView();goTop();};
- document.querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch||state.phase!=='choice'||b.disabled)return;try{state=G.choose(state,Number(b.dataset.choice));persist();if(state.failed)speak('failure');gameView();collectRomanceAwards();}catch{toast('这个选择暂时不可用。');}});
+ document.querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch||state.phase!=='choice'||b.disabled)return;try{state=G.choose(state,Number(b.dataset.choice));persist();if(state.failed)speak('failure');gameView();collectAchievements();}catch{toast('这个选择暂时不可用。');}});
  document.querySelectorAll('[data-activity]').forEach(b=>b.onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch)return;try{state=G.startActivity(state,b.dataset.activity);persist();gameView();goTop();}catch{toast('这段时间暂时安排不了，可以换一个选择。');}});
  if(state.miniGames?.pending)openCurrentMini();const miniAlbum=document.querySelector('#open-mini-album');if(miniAlbum)miniAlbum.onclick=()=>window.DormMiniUI.open({key:'mini-photo',token:'album-'+renderEpoch,title:'校园相册',readonly:true,pink:!!state.romance?.connected,cost:'照片保存在当前浏览器，可单独保存',onCancel:()=>{},onDone:()=>{}});
  bindClinic(renderedState);bindExtraCare(renderedState);
  document.querySelectorAll('[data-stall]').forEach(b=>b.onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch)return;mealStall=b.dataset.stall;gameView();});
  const next=document.querySelector('#next-scene');
  if(next)next.onclick=()=>{if(view!=='game'||state!==renderedState||renderEpoch!==renderedEpoch||state.phase!=='outcome')return;state=G.next(state);persist();gameView();goTop();document.querySelector('#scene-title')?.focus({preventScroll:true});};
+ if(state.phase==='outcome')collectAchievements();
 }
 
+function positiveRoutesHTML(){
+ const routes=G.availablePositiveEndings(state);if(!routes.length)return '';
+ return '<section class="positive-routes" aria-label="可达成的正向结局"><h2>新的结局</h2>'+routes.map(e=>'<button type="button" class="positive-route" data-positive-finish="'+esc(e.id)+'"><img src="'+asset(E.ending(e).file)+'" alt=""><strong>'+esc(e.name)+'</strong><span aria-hidden="true">↗</span></button>').join('')+'</section>';
+}
 function endingView(){
  renderEpoch++;clearCard();
  view='ending';
- const renderedState=state,e=G.ending(state),daily=state.phase==='dayEnd',failed=!!e.failure,rest=daily?G.restPreview(state):null;
- const unlocked=G.achievements(state).filter(item=>!seen.includes(item.id));
- if(unlocked.length){seen.push(...unlocked.map(item=>item.id));write(bookKey,seen);updateBook();if(!failed&&unlocked.some(item=>(['freshman','week','degree','honor'].includes(item.id)||item.hidden||item.difficulty==='hard')))speak('award');}
+ const renderedState=state,e=G.ending(state),daily=state.phase==='dayEnd',failed=!!e.failure,positive=!!state.positiveEnding,rest=daily?G.restPreview(state):null;
+ const unlocked=recordAchievements();
+ const finale=recordFinale(),finaleTag=finale?'<button class="ending-route-tag" data-ending-route="'+esc(finale.id)+'">结局 · '+esc(finale.name)+' <span aria-hidden="true">↗</span></button>':'';
+ if(unlocked.length&&!failed)speak('award');
  const today=state.log.filter(x=>x.day===state.day);
  const stats=G.statKeys(state.stats).map(k=>`<span class="${k==='money'&&state.stats[k]>9999?'large-money':''}">${G.labels[k]}<b>${k==='money'?'¥':''}${state.stats[k]}</b></span>`).join('');
  const recap=today.map(x=>`<li><time>${x.time}</time><span><strong>${esc(narrative(x.title))}</strong><br><b>${esc(x.choice)}</b></span></li>`).join('');
  const signed=n=>(n>=0?'+':'')+n;
  const dailyActions=daily?`<div class="rest-note"><h3>明日变化</h3><div><span>电量 <b>+${rest.changes.energy||0}</b></span><span>饭钱 <b>−${Math.abs(rest.changes.money||0)}</b></span><span>新课压力 <b>学业 −${rest.pressure}</b></span>${Number.isFinite(state.stats.health)?`<span>健康 <b>${signed(rest.changes.health||0)}</b></span><span>心情 <b>${signed(rest.changes.mood||0)}</b></span>`:''}</div>${rest.failed?'<strong class="rest-warning">'+(['fail-health','fail-mood'].includes(rest.failed)?'健康或心情不足，继续拖延会触发奶蛙长眠。':'学业不足，继续明天会触发劝退。')+'</strong>':''}</div><button class="button dark" id="continue-day">继续第 ${state.day+1} 天</button><button class="button white" id="retire-run">结束本局</button>`:'';
- app.innerHTML=`<section class="ending-page"><div class="ending-top"><p class="eyebrow">第 ${state.day} 天</p><h1>${failed?'这次，先到这里。':daily?'今天，平安回寝。':'本次人生已结束。'}</h1><p>${unlocked.length?'新成就 +'+unlocked.length:'成就已收录'} · ${seen.length} / ${G.endings.length}</p></div><div class="ending-layout"><article class="ending-card ${failed?'failed-card':''}" id="result-card"><div class="card-top"><span>奶蛙宿舍</span><span>${e.icon}</span></div><img class="ending-frog ending-meme" src="${asset(E.ending(e).file)}" alt="${esc(E.ending(e).alt)}"><span class="eyebrow">${esc(state.name)}</span><h2 class="ending-name">${e.name}</h2><p class="ending-quote">${e.quote}</p><div class="ending-stats" style="--ending-columns:${G.statKeys(state.stats).length>4?3:4}">${stats}</div><div class="ending-card-bottom"><span>重生之我在宿舍当奶蛙</span><span>第 ${state.day} 天</span></div></article><div class="ending-extra">${taskHTML()}${illnessHTML()}${careHTML()}${romanceHTML()}<div class="ending-actions">${dailyActions}<button class="button ${daily?'white':'dark'}" id="save-card">保存卡片</button><button class="button white" id="copy-result">复制结果</button>${canShareStart(state)?'<button class="text-btn" id="share-start">分享同一起点</button>':''}<button class="quit-btn" id="restart">重新开始</button></div><div id="image-fallback"></div><details class="recap"><summary>今日回顾</summary><ol>${recap||'<li>今天还没来得及出门。</li>'}</ol></details></div></div></section>`;
+ app.innerHTML=`<section class="ending-page"><div class="ending-top"><p class="eyebrow">第 ${state.day} 天</p><h1>${failed?'这次，先到这里。':daily?'今天，平安回寝。':positive?'这一段，圆满收尾。':'本次人生已结束。'}</h1>${finaleTag}<p>${unlocked.length?'新成就 +'+unlocked.length:'今日结算'} · 成就 ${currentAchievementCount()} / ${A.items.length}</p></div><div class="ending-layout"><article class="ending-card ${failed?'failed-card':positive?'positive-card':''}" id="result-card"><div class="card-top"><span>奶蛙宿舍</span><span>${e.icon}</span></div><img class="ending-frog ending-meme" src="${asset(E.ending(e).file)}" alt="${esc(E.ending(e).alt)}"><span class="eyebrow">${esc(state.name)}</span><h2 class="ending-name">${e.name}</h2><p class="ending-quote">${e.quote}</p><div class="ending-stats" style="--ending-columns:${G.statKeys(state.stats).length>4?3:4}">${stats}</div><div class="ending-card-bottom"><span>重生之我在宿舍当奶蛙</span><span>第 ${state.day} 天</span></div></article><div class="ending-extra">${daily?positiveRoutesHTML():''}${taskHTML()}${illnessHTML()}${careHTML()}${romanceHTML()}<div class="ending-actions">${dailyActions}<button class="button ${daily?'white':'dark'}" id="save-card">保存卡片</button><button class="button white" id="copy-result">复制结果</button>${positive?'<button class="button white" id="resume-positive">继续校园生活</button>':''}${canShareStart(state)?'<button class="text-btn" id="share-start">分享同一起点</button>':''}<button class="quit-btn" id="restart">重新开始</button></div><div id="image-fallback"></div><details class="recap"><summary>今日回顾</summary><ol>${recap||'<li>今天还没来得及出门。</li>'}</ol></details></div></div></section>`;
  bindClinic(renderedState);bindExtraCare(renderedState);
+ document.querySelectorAll('[data-ending-route]').forEach(b=>b.onclick=()=>{collectionTab='finales';showAchievement(b.dataset.endingRoute,'collection',true);});
  document.querySelector('#restart').onclick=()=>startDraft();
  document.querySelector('#copy-result').onclick=()=>copyResult(e);
  if(canShareStart(state))document.querySelector('#share-start').onclick=()=>shareStart(state);
  document.querySelector('#save-card').onclick=()=>saveCard(e);
+ document.querySelectorAll('[data-positive-finish]').forEach(b=>b.onclick=()=>{if(view!=='ending'||state!==renderedState||state.phase!=='dayEnd')return;try{state=G.finishPositive(state,b.dataset.positiveFinish);persist();endingView();speak('award');goTop();}catch(error){toast(error?.message||'这条结局还没有达成。');}});
+ if(positive)document.querySelector('#resume-positive').onclick=()=>{if(view!=='ending'||state!==renderedState||!state.positiveEnding)return;try{state=G.continueDay(G.resumePositive(state));persist();if(state.failed)speak('failure');gameView();goTop();}catch(error){toast(error?.message||'暂时不能继续，请重新打开存档。');}};
  if(daily){document.querySelector('#continue-day').onclick=()=>{if(view!=='ending'||state!==renderedState||state.phase!=='dayEnd')return;state=G.continueDay(G.enableEconomy(state));persist();if(state.failed)speak('failure');gameView();goTop();};document.querySelector('#retire-run').onclick=()=>{if(view!=='ending'||state!==renderedState||state.phase!=='dayEnd')return;state=G.retire(state);persist();endingView();goTop();};}
  if(unlocked.length)showUnlocks(unlocked);
 }
@@ -312,18 +392,46 @@ async function copyResult(e){const text=`我的奶蛙人生来到第${state.day}
 function wrap(ctx,text,x,y,width,line){let part='';for(const char of text){if(ctx.measureText(part+char).width>width){ctx.fillText(part,x,y);part=char;y+=line;}else part+=char;}if(part)ctx.fillText(part,x,y);return y+line;}
 async function saveCard(e){const cardState=state;const b=document.querySelector('#save-card');b.disabled=true;b.textContent='正在制作结局卡…';try{const canvas=document.createElement('canvas');canvas.width=750;canvas.height=G.statKeys(cardState.stats).length>6?1130:1050;const ctx=canvas.getContext('2d');ctx.fillStyle='#f5f5f7';ctx.fillRect(0,0,750,canvas.height);ctx.strokeStyle='#1d1d1f';ctx.lineWidth=2;ctx.fillStyle='#6e6e73';ctx.font='bold 19px sans-serif';ctx.fillText('ROOM 404 / DAY '+cardState.day+' · 奶蛙人生结算单',55,75);const img=new Image();img.src=asset(E.ending(e).file);await img.decode();const scale=Math.min(330/img.width,370/img.height),w=img.width*scale,h=img.height*scale;ctx.drawImage(img,375-w/2,115,w,h);ctx.fillStyle='#6e6e73';ctx.font='23px sans-serif';ctx.fillText(cardState.name+' 的今日称号',55,540);ctx.fillStyle='#1d1d1f';ctx.font='bold 52px sans-serif';ctx.fillText(e.name,55,615);ctx.font='25px sans-serif';wrap(ctx,e.quote,55,675,640,40);ctx.strokeStyle='#d2d2d7';ctx.beginPath();ctx.moveTo(55,800);ctx.lineTo(695,800);ctx.stroke();G.statKeys(cardState.stats).forEach((k,i)=>{const columns=G.statKeys(cardState.stats).length>4?3:4,x=55+(i%columns)*(640/columns),y=columns===3?825+Math.floor(i/3)*75:850;ctx.fillStyle='#6e6e73';ctx.font='21px sans-serif';ctx.fillText(G.labels[k],x,y);ctx.fillStyle='#1d1d1f';ctx.font='bold 37px monospace';ctx.fillText((k==='money'?'¥':'')+cardState.stats[k],x,y+42);});ctx.fillStyle='#6e6e73';ctx.font='19px sans-serif';ctx.fillText('重生之我在宿舍当奶蛙',55,canvas.height-65);ctx.textAlign='right';ctx.fillText('你会活成哪只？',695,canvas.height-65);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw Error('无法生成图片');if(state!==cardState||view!=='ending')return;clearCard();const url=cardUrl=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='奶蛙宿舍-'+e.name+'.png';document.body.append(a);a.click();a.remove();const fallback=document.querySelector('#image-fallback');fallback.innerHTML='<p class="download-fallback">若手机没有弹出下载，长按下面的图片保存。</p>';const preview=document.createElement('img');preview.src=url;preview.className='download-preview';preview.alt='长按保存奶蛙结局卡';fallback.append(preview);toast('结局卡已生成，可下载或长按图片保存。');}catch{toast('图片暂时没生成成功，可以先复制结局。');}finally{b.disabled=false;b.textContent='保存卡片';}}
 function showUnlocks(items){
- document.querySelector('#unlock-list').innerHTML=items.map(e=>'<article class="unlock-card"><span class="unlock-icon" aria-hidden="true">'+'<img src="'+asset(E.ending(e).file)+'" alt="'+esc(E.ending(e).alt)+'">'+'</span><div>'+(e.hidden?'<small class="achievement-kind">隐藏成就</small>':e.difficulty==='hard'?'<small class="achievement-kind">高难成就</small>':'')+'<h3>'+esc(e.name)+'</h3><p>'+esc(e.quote)+'</p></div></article>').join('');
- document.querySelector('#unlock-modal').showModal();
+ document.querySelector('#unlock-list').innerHTML=items.map(e=>'<button type="button" class="unlock-card" data-unlock-achievement="'+esc(e.id)+'" aria-label="查看'+esc(e.name)+'的触发记录"><span class="unlock-icon" aria-hidden="true"><img src="'+asset(E.ending(e).file)+'" alt=""></span><span class="unlock-copy">'+achievementBadge(e)+'<strong class="unlock-name">'+esc(e.name)+'</strong><span class="unlock-quote">'+esc(e.quote)+'</span><small class="collection-hint">查看触发记录 ↗</small></span></button>').join('');
+ document.querySelectorAll('[data-unlock-achievement]').forEach(b=>b.onclick=()=>showAchievement(b.dataset.unlockAchievement,'unlock'));
+ const modal=document.querySelector('#unlock-modal');if(!modal.open)modal.showModal();
 }
+function achievementBadge(e){return e.hidden?'<small class="achievement-kind">隐藏</small>':e.difficulty==='hard'&&e.category==='挑战'?'<small class="achievement-kind">高难</small>':'';}
+function legacyAchievements(){return seen.filter(id=>!A.items.some(e=>e.id===id)).map(id=>G.endings.find(e=>e.id===id)).filter(Boolean);}
 function showCollection(){
- document.querySelector('.modal-intro').textContent='已解锁 '+seen.length+' / '+G.endings.length;
+ const legacy=legacyAchievements(),historical=collectionTab==='legacy'&&legacy.length>0;
+ if(!historical&&collectionTab!=='finales')collectionTab='current';
+ const endingTab=collectionTab==='finales';
+ document.querySelector('.modal-intro').textContent=endingTab?'已发现 '+Object.keys(finales).length+' / '+F.items.length:historical?'往期收录 · '+legacy.length:'已解锁 '+currentAchievementCount()+' / '+A.items.length;
+ document.querySelector('#collection-tabs').innerHTML=['current','finales',...(legacy.length?['legacy']:[])].map(tab=>'<button type="button" class="collection-tab'+(collectionTab===tab?' selected':'')+'" data-collection-tab="'+tab+'" aria-pressed="'+(collectionTab===tab)+'">'+({current:'当前成就',finales:'结局',legacy:'往期收录'}[tab])+'</button>').join('');
  const lock='<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
- document.querySelector('#collection-grid').innerHTML=G.endings.map(e=>{
-  const known=seen.includes(e.id);
-  return known?'<div class="collection-item unlocked"><span class="collection-meme"><img src="'+asset(E.ending(e).file)+'" alt="'+esc(E.ending(e).alt)+'"></span><h3>'+esc(e.name)+'</h3>'+(e.hidden?'<small class="achievement-kind">隐藏</small>':e.difficulty==='hard'?'<small class="achievement-kind">高难</small>':'')+'</div>':'<div class="collection-item locked" aria-label="未解锁">'+lock+'</div>';
+ document.querySelector('#collection-grid').innerHTML=(endingTab?F.items:historical?legacy:A.items).map(e=>{
+  const known=endingTab?!!finales[e.id]:seen.includes(e.id);
+  return known?'<button type="button" class="collection-item unlocked" '+(endingTab?'data-finale':'data-achievement')+'="'+esc(e.id)+'" aria-label="查看'+esc(e.name)+'的触发记录"><span class="collection-meme"><img src="'+asset(E.ending(e).file)+'" alt=""></span><strong class="collection-name">'+esc(e.name)+'</strong>'+achievementBadge(e)+'<span class="collection-hint" aria-hidden="true">↗</span></button>':'<div class="collection-item locked" aria-label="未解锁">'+lock+'</div>';
  }).join('');
- document.querySelector('#collection-modal').showModal();
+ document.querySelectorAll('[data-collection-tab]').forEach(b=>b.onclick=()=>{collectionTab=b.dataset.collectionTab;showCollection();});
+ document.querySelectorAll('[data-achievement]').forEach(b=>b.onclick=()=>showAchievement(b.dataset.achievement,'collection'));
+ document.querySelectorAll('[data-finale]').forEach(b=>b.onclick=()=>showAchievement(b.dataset.finale,'collection',true));
+ const modal=document.querySelector('#collection-modal');if(!modal.open)modal.showModal();
 }
+function showAchievement(id,origin,isFinale=false){
+ if(isFinale?!finales[id]:!seen.includes(id))return;
+ const current=A.items.find(e=>e.id===id),e=isFinale?F.items.find(e=>e.id===id):current||G.endings.find(e=>e.id===id);if(!e)return;
+ const proof=isFinale?finales[id]:achievementEvidence[id],facts=Array.isArray(proof?.facts)?proof.facts.filter(s=>typeof s==='string').slice(0,8):[];
+ const rule=typeof proof?.rule==='string'?proof.rule:isFinale?e.rule:current?A.describe(id).rule:A.legacyRule(id);
+ const oldRule=!isFinale&&current&&!facts.length?'<p class="achievement-legacy">旧版收录条件：'+esc(A.legacyRule(id))+'</p>':'';
+ document.querySelector('#achievement-detail-title').textContent=e.name;
+ document.querySelector('#achievement-detail-body').innerHTML='<div class="achievement-detail-art"><img src="'+asset(E.ending(e).file)+'" alt="'+esc(E.ending(e).alt)+'">'+achievementBadge(e)+'</div>'+oldRule+'<p class="achievement-detail-rule">'+esc(rule||'旧版结局记录。')+'</p>'+(facts.length?'<p class="collection-meta">'+esc(isFinale?proof.player||'奶蛙':proof.name||'奶蛙')+' · 第 '+esc(proof.day)+' 天'+(isFinale?'达成':'解锁')+'</p><ul class="achievement-facts">'+facts.map(f=>'<li>'+esc(f)+'</li>').join('')+'</ul>':'<p class="achievement-legacy">旧版已收录，未保存当时的触发记录。'+(!isFinale&&current?'以上为当前解锁条件。':'')+'</p>');
+ achievementReturn=origin;document.querySelector(origin==='unlock'?'#unlock-modal':'#collection-modal').close();
+ document.querySelector('#achievement-detail').showModal();
+}
+function closeAchievement(){
+ document.querySelector('#achievement-detail').close();
+ if(achievementReturn==='unlock')document.querySelector('#unlock-modal').showModal();else showCollection();
+}
+document.querySelector('#achievement-detail-close').onclick=document.querySelector('#achievement-detail-back').onclick=closeAchievement;
+document.querySelector('#achievement-detail').oncancel=e=>{e.preventDefault();closeAchievement();};
+document.querySelector('#achievement-detail').onclick=e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeAchievement();}};
 document.querySelector('#collection-btn').onclick=showCollection;document.querySelector('#close-modal').onclick=document.querySelector('#close-modal-bottom').onclick=()=>document.querySelector('#collection-modal').close();document.querySelector('#collection-modal').onclick=e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.currentTarget.close();}};
 document.querySelector('#unlock-close').onclick=document.querySelector('#unlock-accept').onclick=()=>document.querySelector('#unlock-modal').close();
 document.querySelector('#unlock-book').onclick=()=>{document.querySelector('#unlock-modal').close();showCollection();};
@@ -335,6 +443,7 @@ document.querySelector('#version-btn').onclick=showRelease;
 document.querySelector('#release-close').onclick=document.querySelector('#release-accept').onclick=dismissRelease;
 document.querySelector('#release-modal').oncancel=e=>{e.preventDefault();dismissRelease();};
 document.querySelector('#release-modal').onclick=e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dismissRelease();}};
+window.DormMusic?.bind(document.querySelector('#music-btn'),()=>toast('背景音乐暂时无法播放，请再点一次。'));
 soundUI();updateBook();home();
 if(read('naiwa-dorm-release-hidden',null)!==RELEASE.version)showRelease();
 })();

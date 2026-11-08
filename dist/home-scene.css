@@ -1,0 +1,45 @@
+.home-campus-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.home-campus-scene > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.home-campus-leaf {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.home-campus-leaf-one {
+  animation: home-campus-leaf-drift 8s ease-in-out infinite;
+}
+
+.home-campus-leaf-two {
+  animation: home-campus-leaf-drift 9.5s ease-in-out -3s infinite reverse;
+}
+
+@keyframes home-campus-leaf-drift {
+  0%, 100% { transform: translate(0, 0) rotate(-4deg); }
+  50% { transform: translate(4px, 6px) rotate(8deg); }
+}
+
+@media (max-width: 600px) {
+  .home-campus-scene {
+    inset: -4px -9px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-campus-leaf {
+    animation: none;
+    transform: none;
+  }
+}

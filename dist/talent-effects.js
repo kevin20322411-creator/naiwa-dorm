@@ -9,21 +9,26 @@ function enableTalentEffects(s){
  if(s.version!==6||s.talentEffects||s.phase==='ending'||!selected(s).some(id=>added.has(id)))return s;
  return{...s,actions:[...s.actions,'talent-v1'],talentEffects:{revision:1,base:clone(s),daily:{day:s.day,used:[]}}};
 }
-function matches(id,e){
+function mealPayment(e,s){
+ const netMoney=e.changes?.money||0;
+ // The journal may credit a reward on the same receipt as the meal.
+ return -(netMoney-(s.campusJobs?.rules===2?e.journalRewardReceived||0:0));
+}
+function matches(id,e,s){
  const f=e.flags||{},academic=f.schoolAttend&&['major','common'].includes(e.category),practice=!!e.majorWork&&!e.majorWork.skipped;
  if(id==='classRep')return!!academic&&e.category==='major';
  if(id==='keyListener')return!!academic;
  if(id==='napSwitch')return!!(f.rest||f.nap||f.sleep||e.campusActivity==='garden-rest');
- if(id==='jobHand')return!!f.job;
+ if(id==='jobHand')return!!f.job||(s.campusJobs?.rules===2&&e.eventId==='term-shift'&&e.index===0);
  if(id==='morningExercise')return!!f.sport;
- if(id==='lunchbox')return!!f.meal&&!f.missedMeal&&!e.outside&&!e.lotteryPrize&&e.eventId!=='lottery-ticket'&&(e.changes?.money||0)<0&&(/^meal-/.test(e.eventId)||/食堂/.test(e.place||''));
+ if(id==='lunchbox')return!!f.meal&&!f.missedMeal&&!e.outside&&!e.lotteryPrize&&e.eventId!=='lottery-ticket'&&mealPayment(e,s)>0&&(/^meal-/.test(e.eventId)||/食堂/.test(e.place||''));
  if(id==='steadyPractice'||id==='observationNotes')return practice;
  if(id==='clubBuddy')return !e.schoolCourse&&!e.majorWork&&!f.job&&!f.meal&&!e.ignored&&!!(f.social||f.kindness||f.help||f.helped||f.rescue||f.mealFriend||e.intimacyChange>0||e.campusActivity==='campus-chat'||e.changes?.social>0);
  return false;
 }
 function reward(id,e,s){
  if(id==='classRep'||id==='steadyPractice')return{project:1,mods:{}};
- const mods=id==='keyListener'||id==='observationNotes'?{study:1}:id==='napSwitch'?{energy:2}:id==='jobHand'?{money:2}:id==='lunchbox'?{money:Math.min(1,-e.changes.money)}:id==='clubBuddy'?{social:1}:{mood:1};
+ const mods=id==='keyListener'||id==='observationNotes'?{study:1}:id==='napSwitch'?{energy:2}:id==='jobHand'?{money:2}:id==='lunchbox'?{money:Math.min(1,mealPayment(e,s))}:id==='clubBuddy'?{social:1}:{mood:1};
  // Use the same pre-activity thresholds as the underlying status rewards.
  for(const k of ['health','mood'])if(mods[k]>0)mods[k]=s.stats[k]>=80?Math.floor(mods[k]*.25):s.stats[k]>=65?Math.max(1,Math.floor(mods[k]*.5)):mods[k];
  return{mods,project:0};
@@ -37,7 +42,7 @@ function effects(s,n){
  for(let i=s.log.length;i<log.length;i++){
   const entry=log[i];if(entry.day!==n.day)continue;let e=entry,changes={...entry.changes},messages=[],triggers=[];
   for(const id of ids){
-   if(!loadout.includes(id)||daily.used.includes(id)||!matches(id,entry))continue;
+   if(!loadout.includes(id)||daily.used.includes(id)||!matches(id,entry,s))continue;
    daily.used.push(id);const bonus=reward(id,entry,s),after=B.apply(stats,bonus.mods),actual=delta(stats,after),parts=Object.entries(actual).map(([key,value])=>B.labels[key]+(value>0?'+':'')+value);
    for(const [key,value] of Object.entries(actual)){changes[key]=(changes[key]||0)+value;if(changes[key]===0)delete changes[key];}
    if(bonus.project){project+=bonus.project;e={...e,project:(e.project||0)+bonus.project};parts.push('课设+'+bonus.project);}

@@ -78,4 +78,25 @@ const altered=structuredClone(second);
 altered.stats.money++;
 assert.equal(G.restore(altered),null);
 
+// v9.4 receipts are real saved games. Restore past payments unchanged, but
+// use the corrected talent rules when the player is still choosing.
+const v94=require('./fixtures/campus-jobs-v94.json');
+for(const [sample,id,expected,bonus] of [
+ [v94.termShift,'jobHand',34,2],
+ [v94.mealReward,'lunchbox',35,1]
+]){
+ const {before,index,after}=sample;
+ check(before);
+ check(after);
+ assert.deepEqual(G.choose(before,index),after);
+ const upgraded=check(G.enableCampusJobs(before));
+ assert.deepEqual(upgraded.log,before.log);
+ assert.deepEqual(upgraded.stats,before.stats);
+ assert.strictEqual(G.enableCampusJobs(upgraded),upgraded);
+ const paid=check(G.choose(upgraded,index));
+ assert.equal(paid.stats.money,expected);
+ assert.equal(paid.stats.money-after.stats.money,bonus);
+ assert.deepEqual(paid.outcome.talentTriggers.map(item=>item.id),[id]);
+ assert(paid.talentEffects.daily.used.includes(id));
+}
 console.log('Campus jobs passed: exact 9.0 wages and saves, paid rates, map access, duration and nutrition, cancellation and repeats, short class gaps and trait bonus.');

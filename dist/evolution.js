@@ -77,7 +77,7 @@ function startActivity(s,key){if(s.evolution&&key==='ask-walk'&&s.rhythm.clock<1
 }
 function grant(s){if(!s.evolution||s.failed)return s;let ev=s.evolution,amount=ev.rewardCredit,n=s;
  if(s.phase==='dayEnd'&&!ev.rewarded&&B.degreeStatus(s).awarded){ev={...ev,rewarded:true};amount+=30;n={...n,evolution:ev};}
- const paid=Math.min(amount,150-s.stats.money);if(amount===ev.rewardCredit&&!paid)return n;const stats=B.apply(s.stats,{money:paid});ev={...ev,rewardCredit:amount-paid};
+ const paid=Math.min(amount,B.moneyRoom(s.stats));if(amount===ev.rewardCredit&&!paid)return n;const stats=B.apply(s.stats,{money:paid});ev={...ev,rewardCredit:amount-paid};
  const entry={day:s.day,step:-1,eventId:'evo-scholarship',index:0,time:clock(s.rhythm.clock),title:'奶学金激励奖到账。',choice:'领取激励奖',result:'奶学金激励奖共 30 元。'+(ev.rewardCredit?'余额已满，余下 '+ev.rewardCredit+' 元保留，后续有空位时到账。':''),changes:delta(s.stats,stats),flags:{},project:0};return{...n,stats,evolution:ev,log:[...n.log,entry]};
 }
 function next(s){if(!s.evolution)return B.next(s);s=settle(s);let ev=s.evolution;
