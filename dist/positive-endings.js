@@ -1,6 +1,6 @@
 (function(root){
 'use strict';
-const browser=typeof module==='undefined'||!module.exports,B=browser?root.DormGame:require('./wallet.js');
+const browser=typeof module==='undefined'||!module.exports,B=browser?root.DormGame:require('./admission.js');
 const clone=value=>JSON.parse(JSON.stringify(value)),countDays=rows=>new Set(rows.map(row=>row.day)).size;
 // Eligibility is saved as revision 1. Preserve these rules when introducing a
 // later revision, so a completed ending remains replayable after balance changes.

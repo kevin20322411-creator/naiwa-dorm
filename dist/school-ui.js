@@ -1,6 +1,6 @@
 (function(root){
 'use strict';
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=s=>String(s??'').replaceAll('饭钱','生活费').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const motifs={
  cs:{label:'编程与调试',tag:'Hello, campus.',title:'让想法跑起来',lines:['拆开一个小问题','写下来，再运行'],mark:'</>'},
  bio:{label:'观察与实验',tag:'FIELD NOTES',title:'把好奇写进记录',lines:['仔细看一片叶子','留下一页观察'],mark:'01'},

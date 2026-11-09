@@ -8,11 +8,9 @@ function script(code){new vm.Script(code);return '<script>'+code.replaceAll('</s
 function data(value){return JSON.stringify(value).replaceAll('<','\\u003c');}
 function inline(html,dir){return html.replace(/<link rel="stylesheet" href="\.\/([^"?]+\.css)(?:\?[^" ]*)?">/g,(_,name)=>'<style>'+fs.readFileSync(path.join(dir,name),'utf8')+'</style>').replace(/<script src="\.\/([^"?]+\.js)(?:\?[^" ]*)?"><\/script>/g,(_,name)=>script(fs.readFileSync(path.join(dir,name),'utf8')));}
 let mini=inline(fs.readFileSync(path.join(root,'mini/index.html'),'utf8'),path.join(root,'mini'));
-// The soundtrack belongs to the parent game, so embed it only once.
-const miniAssets={...assets};
-delete miniAssets['simplicity.mp3'];
-mini=mini.replace('<head>','<head>'+script('window.PreviewAssets='+data(miniAssets)+';'));
+// Keep one physical copy of each asset. The host supplies the four mini-game
+// sprites when opening its iframe; the exported child template contains no media.
 let html=fs.readFileSync(path.join(root,'index.html'),'utf8');
-html=html.replace('href="./assets/frog-wave.png"','href="'+assets['frog-wave.png']+'"');
-html=html.replace(/<script src="\.\/engine\.js(?:\?[^\"]*)?"><\/script>/,entry=>script('window.DormAssets='+data(assets)+';window.DormMiniDocument='+data(mini)+';')+entry);
+html=html.replace('href="./assets/frog-wave.png"','href="data:,"');
+html=html.replace(/<script src="\.\/engine\.js(?:\?[^\"]*)?"><\/script>/,entry=>script('window.DormAssets='+data(assets)+';window.DormMiniDocument='+data(mini)+';if(typeof document!=="undefined"){const icon=document.querySelector(\'link[rel="icon"]\');if(icon)icon.href=window.DormAssets["frog-wave.png"];}')+entry);
 html=inline(html,root);fs.writeFileSync(target,html,'utf8');console.log('Exported '+target+' ('+Buffer.byteLength(html)+' bytes)');

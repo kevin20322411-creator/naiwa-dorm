@@ -31,7 +31,13 @@ const requires={
  '椰子鸡双人拼单':['chicken','coconut'], '海鲜蒸锅套餐':['fish-slice','shrimp','scallop'],
  '烤肉自助':['grill','beef','roast-pork'], '烤串小拼盘':['skewer','grilled-meat'],
  '小份寿司拼盘':['salmon-sushi','nori-roll'], '炸鸡汉堡套餐':['burger','fries','fried-chicken'],
- '黄焖鸡饭':['chicken','potato','rice']
+ '黄焖鸡饭':['chicken','potato','rice'],
+ '街边葱油拌面':['scallion-oil-noodles'], '香菇鸡腿盖饭':['chicken-leg','mushroom'],
+ '炸鸡汉堡可乐套餐':['burger','cola'], '香煎鸡排套餐':['chicken-cutlet','pepper-sauce'],
+ '鲜牛肉蔬菜小火锅':['beef-roll','cabbage'], '炭烤牛肉双拼饭':['thick-steak','rice'],
+ '海鲜自助晚餐':['seafood-platter','shrimp','scallop'], '厚切牛排套餐':['thick-steak','asparagus'],
+ '炭火烤肉套餐':['table-grill','beef','roast-pork'], '花园餐厅烤鸡套餐':['whole-roast-chicken','rosemary'],
+ '日式寿司品鉴套餐':['nigiri-assortment','maki-rolls'], '酒店主厨品鉴套餐':['chef-fish-course','consomme','petit-dessert']
 };
 for(const [name,parts] of Object.entries(requires))for(const part of parts)assert(arts.get(name)?.includes('data-food-part="'+part+'"'),name+' must contain '+part);
 const desserts=['红豆双皮奶','芋泥酸奶碗','抹茶小蛋糕','水果松饼','巧克力甜甜圈'];
@@ -41,6 +47,10 @@ assert(!C.foodArt('土豆丝盖饭').includes('data-food-part="fried-egg"'),'no 
 assert(!C.foodArt('现蒸肠粉').includes('data-food-part="noodles"'),'rice rolls are not spaghetti');
 assert(!C.foodArt('<script>alert(1)</script>').includes('<script>'),'untrusted dish names are escaped');
 assert(C.foodArt('米饭').includes('data-food-recipe="fallback"'),'unknown names keep a safe drawing');
+const outside=['海鲜自助晚餐','厚切牛排套餐','炭火烤肉套餐','花园餐厅烤鸡套餐','日式寿司品鉴套餐','酒店主厨品鉴套餐'];
+assert.equal(new Set(outside.map(n=>arts.get(n).slice(arts.get(n).indexOf('>')+1))).size,outside.length,'new premium dishes have distinct compositions');
+const scene={kind:'三餐',id:'lunch',title:'午饭',stalls:true,choices:[{text:'海鲜自助晚餐 · ¥128',stall:'outside',mods:{money:-128}}]},state={phase:'choice',stats:{money:300,energy:80,health:80,study:80,mood:80}};
+for(const phase of ['choice','outcome']){const html=C.render({...state,phase,outcome:{choice:scene.choices[0].text,index:0,changes:{money:-128}}},scene,{stall:'outside'});assert(!/饭卡|canteen-wallet/.test(html),'no redundant food wallet in either meal phase');assert(html.includes('data-food-recipe="named"'));}
 if(process.argv.includes('--gallery')){
  const out=path.join(base,'.openai/food-art-gallery.html');
  fs.mkdirSync(path.dirname(out),{recursive:true});

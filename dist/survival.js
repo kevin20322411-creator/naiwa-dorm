@@ -9,7 +9,7 @@ const challenges=browser?root.DormChallenges:require('./challenges.js');
 const life=browser?root.DormLife:require('./life.js');
 const {rng}=L,keys=[...L.keys,'health','mood'],labels={...L.labels,health:'健康',mood:'心情'};
 function statKeys(stats){return keys.filter(k=>Number.isFinite(stats[k]));}
-function apply(stats,mods){const next={...stats};for(const k of statKeys(stats))next[k]=Math.max(0,Math.min(L.statLimit(k),next[k]+(mods[k]||0)));return next;}
+function apply(stats,mods){const next={...stats};for(const k of statKeys(stats))next[k]=Math.max(0,Math.min(L.statLimit(k),next[k]+(mods[k]||0)));return L.applyMoodPolicy(next);}
 function fullLife(s){return s.version>=5||s.lifeUpdate===true;}
 const traits=[...L.traits,...campus.traits],traitMap=new Map(traits.map(t=>[t.id,t]));
 const c=(text,hint,mods,result,flags={},roll=null)=>({text,hint,mods,result,flags,roll});
@@ -208,6 +208,6 @@ function restore(raw){
  }catch{return null;}
 }
 function valid(raw){return restore(raw)!==null;}
-const api={keys,labels,traits,endings,stages,events,openingBuffs,eventCount:events.length,rng,newDraft,apply,statLimit:L.statLimit,moneyRoom:L.moneyRoom,withUncappedMoney:L.withUncappedMoney,statKeys,create,getScene,choose,next,ending,achievements,completedDays,degreeStatus,continueDay,enableEconomy,enableLife,retire,restPreview,restore,valid};
+const api={keys,labels,traits,endings,stages,events,openingBuffs,eventCount:events.length,rng,newDraft,apply,statLimit:L.statLimit,moneyRoom:L.moneyRoom,withUncappedMoney:L.withUncappedMoney,withMoodLock:L.withMoodLock,applyMoodPolicy:L.applyMoodPolicy,statKeys,create,getScene,choose,next,ending,achievements,completedDays,degreeStatus,continueDay,enableEconomy,enableLife,retire,restPreview,restore,valid};
 root.DormGame=api;if(!browser)module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

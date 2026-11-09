@@ -1,6 +1,6 @@
 (function(root){
 'use strict';
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=s=>String(s??'').replaceAll('饭钱','生活费').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const symbols={cs:'</>',bio:'◉',business:'↗',literature:'文',design:'✦',math:'∑',law:'⚖',electronics:'⌁',journalism:'▤',music:'♪'};
 const kindNames={debug:'校园工具实验室',experiment:'校园观察站',business:'校园小摊练习',editing:'校刊编辑室',design:'校园海报工作台',route:'校园路线模型',contract:'校园条款校对',circuit:'电路实验台',reporting:'校园新闻台',melody:'旋律练习室'};
 const previewNames={debug:'运行预览',experiment:'样本观察',business:'模拟摊位',editing:'校刊',design:'海报预览',route:'路线图',contract:'修订稿',circuit:'电路预览',reporting:'新闻稿',melody:'乐谱与节奏'};

@@ -4,7 +4,7 @@ function open(options){if(active?.token===options.token)return;close();const dia
 const embedded=!!window.DormMiniDocument;
 active.offline=embedded&&location.protocol==='file:';
 const config={key:options.key,token:options.token,pink:options.pink,readonly:!!options.readonly,targetOrigin:active.offline?'*':location.origin};
-ordinary.hidden=!!options.readonly;if(embedded)frame.srcdoc=window.DormMiniDocument.replace('<head>','<head><script>window.EmbeddedMiniConfig='+JSON.stringify(config)+';<'+'/script>');else frame.src='./mini/index.html?'+new URLSearchParams({game:config.key,token:config.token,pink:config.pink?'1':'0',album:config.readonly?'1':'0'});
+ordinary.hidden=!!options.readonly;if(embedded){const encode=value=>JSON.stringify(value).replaceAll('<','\\u003c'),sprites={};for(const name of ['frog.png','frog-wave.png','naishu-cutout.png','meme-surprised.png'])if(window.DormAssets?.[name])sprites[name]=window.DormAssets[name];frame.srcdoc=window.DormMiniDocument.replace('<head>','<head><script>window.PreviewAssets='+encode(sprites)+';window.EmbeddedMiniConfig='+encode(config)+';<'+'/script>');}else frame.src='./mini/index.html?'+new URLSearchParams({game:config.key,token:config.token,pink:config.pink?'1':'0',album:config.readonly?'1':'0'});
 const cancel=()=>{const value=active?.result;close();if(value!==null&&value!==undefined)options.onDone(value);else options.onCancel();};exit.onclick=cancel;ordinary.onclick=()=>{close();options.onDone(-1);};dialog.oncancel=e=>{e.preventDefault();cancel();};dialog.showModal();}
 window.addEventListener('message',e=>{
  const a=active;

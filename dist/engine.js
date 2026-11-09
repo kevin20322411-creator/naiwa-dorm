@@ -71,9 +71,12 @@ function withUncappedMoney(run){
  uncappedMoney=true;
  try{return run();}finally{uncappedMoney=previous;}
 }
+let moodLocked=false;
+function withMoodLock(run){const before=moodLocked;moodLocked=true;try{return run();}finally{moodLocked=before;}}
+function applyMoodPolicy(stats){return moodLocked&&Number.isFinite(stats.mood)?{...stats,mood:100}:stats;}
 function statLimit(key){return key==='money'?(uncappedMoney?Infinity:150):100;}
 function moneyRoom(stats,spent=0){return statLimit('money')-stats.money+spent;}
-function apply(stats,mods){const next={...stats};for(const k of keys)next[k]=Math.max(0,Math.min(statLimit(k),next[k]+(mods[k]||0)));return next;}
+function apply(stats,mods){const next={...stats};for(const k of keys)next[k]=Math.max(0,Math.min(statLimit(k),next[k]+(mods[k]||0)));return applyMoodPolicy(next);}
 function create(seed,selected,name){if(!Array.isArray(selected)||selected.length!==2||new Set(selected).size!==2||selected.some(x=>!traits.some(t=>t.id===x)))throw Error('请选择两张不同天赋');let stats={energy:65,money:40,social:45,study:40};for(const id of selected)stats=apply(stats,traits.find(t=>t.id===id).mods);return{version:1,seed:seed>>>0,name:String(name||'奶娃同学').trim().slice(0,12)||'奶娃同学',traits:[...selected],stats,flags:{},step:0,phase:'choice',log:[],outcome:null,bonus:false};}
 function getScene(state){const scene={...stages[state.step]};if(!scene.choices)return null;scene.choices=scene.choices.map(x=>({...x,mods:{...x.mods},flags:{...x.flags}}));scene.callback='';
  if(state.step===1){if(state.flags.skip){scene.text='你还躺在床上，室友发来一条语音：“点到你了。”\n奶娃缓缓坐起：原来缺席也能如此有存在感。';scene.callback='上一幕你选择了继续睡，远程早八模式已启动。';scene.choices[0].text='立刻赶去教室，争取后半节课';}else if(state.flags.late){scene.callback='包子已经到位，但你刚刚错过了开场的重点。';}}
@@ -92,5 +95,5 @@ function next(state){if(state.phase!=='outcome')throw Error('请先做出选择'
 function ending(state){const s=state.stats,f=state.flags;let id='ordinary';
  if(f.chaos>=4)id='chaos';else if(s.money<=3)id='poor';else if(s.energy<=10)id='tired';else if(f.skip>=2)id='skip';else if(f.rescue>=2)id='hero';else if(s.social>=90)id='popular';else if(s.study>=92)id='scholar';else if(s.money>=70)id='rich';else if(state.traits.includes('luck')&&state.bonus&&s.energy>=35&&s.study>=45)id='lucky';else if(s.energy>=85&&s.study<60)id='battery';else if(s.energy>=55&&s.social>=65&&s.study>=65&&s.money>=15)id='balanced';return endings.find(x=>x.id===id);}
 function valid(raw){try{if(!raw||raw.version!==1||!Number.isInteger(raw.seed)||!Array.isArray(raw.log)||raw.log.length>8)return false;let s=create(raw.seed,raw.traits,raw.name);for(const item of raw.log){s=choose(s,item.index);if(item.step<raw.step)s=next(s);}return JSON.stringify(s)===JSON.stringify(raw);}catch{return false;}}
-const api={keys,labels,traits,endings,stages,rng,newDraft,apply,statLimit,moneyRoom,withUncappedMoney,create,getScene,choose,next,ending,valid};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.DormGame=api;
+const api={keys,labels,traits,endings,stages,rng,newDraft,apply,statLimit,moneyRoom,withUncappedMoney,withMoodLock,applyMoodPolicy,create,getScene,choose,next,ending,valid};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.DormGame=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
