@@ -1,6 +1,7 @@
 (function(root){
 'use strict';
 const browser=typeof module==='undefined'||!module.exports,B=browser?root.DormGame:require('./wallet.js');
+const identityEvents=browser?root.DormIdentityEvents:require('./identity-events.js');
 const clone=x=>JSON.parse(JSON.stringify(x)),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),clamp=n=>Math.max(0,Math.min(100,n));
 const hash=t=>{let h=2166136261;for(const c of String(t))h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0;};
 const rng=(seed,key)=>B.rng(hash(seed+':admission-v1:'+key));
@@ -13,7 +14,7 @@ const identities=[
  {id:'classmate',name:'奶粉的老同学',mods:{},desc:'已有奶粉联系方式、亲密度20，并知道一项喜好。'},
  {id:'blogger',name:'校园博主',mods:{charm:8},desc:'魅力＋8；拍到目标照片获稿费10，每天一次。'},
  {id:'celebrity',name:'男明星',gold:true,mods:{},desc:'开局魅力100；每天有2～3位奶粉主动要联系方式。'},
- {id:'rich',name:'富二代',gold:true,mods:{money:300},desc:'生活费＋300；每7天额外补助100。'},
+ {id:'rich',name:'富二代',gold:true,mods:{money:300},desc:'开局生活费＋300；家里每天给150。'},
  {id:'liang',name:'良子',mods:{},desc:'饱食度消耗翻倍，心情恒定100。'}
 ].map(Object.freeze);
 const golden=[
@@ -45,9 +46,10 @@ function talentDraft(seed,selected=[],previous=[]){
  return result;
 }
 const selected=s=>s.admission?.loadout||B.selectedTraits(s),has=(s,id)=>selected(s).includes(id);
+const labThreshold=s=>s?.admission?.id==='admitted'?65:75;
 function scope(s,run){
  if(!s?.admission)return run();
- const id=s.admission.id,execute=()=>B.withUncappedMoney(()=>B.withCampusRules({labThreshold:id==='admitted'?65:75},()=>B.withDiningRules({newMenu:true,menuRevision:s.admission.mealRevision||s.admission.revision,factor:id==='liang'?2:1,outsideFactor:id==='local'?.9:1,outsideMinutes:id==='local'?35:45},run)));
+ const id=s.admission.id,execute=()=>B.withUncappedMoney(()=>B.withCampusRules({labThreshold:labThreshold(s)},()=>B.withDiningRules({newMenu:true,menuRevision:s.admission.mealRevision||s.admission.revision,factor:id==='liang'?2:1,outsideFactor:id==='local'?.9:1,outsideMinutes:id==='local'?35:45},run)));
  return id==='liang'?B.withMoodLock(execute):execute();
 }
 function apply(s,mods){return B.withUncappedMoney(()=>B.apply(s,mods));}
@@ -74,7 +76,7 @@ function initial(base,id,loadout,revision=2){
 }
 function createCampus(seed,loadout,name,id,recent=[],major='cs',selection){
  if(loadout.length!==3||new Set(loadout.map(family)).size!==3||loadout.some(t=>!traits.some(x=>x.id===t)))throw Error('请选择三个不同系列的天赋');
- return initial(B.create(seed,loadout.map(family),name,recent,'freshman',major,selection),id,loadout);
+ return wrapped.enableDailyAllowance(wrapped.upgradeIdentityEvents(wrapped.enableIdentityEvents(initial(B.create(seed,loadout.map(family),name,recent,'freshman',major,selection),id,loadout))));
 }
 const jobs=[
  {id:'work-library',label:'图书馆整理',place:'图书馆',minutes:30,money:25,energy:8},
@@ -83,6 +85,28 @@ const jobs=[
  {id:'work-tutor',label:'课后家教',place:'家教课堂',minutes:120,money:160,energy:40}
 ];
 const workById=new Map(jobs.map(j=>[j.id,j]));
+function enableIdentityEvents(s){if(!s?.admission||s.admission.identityLife||s.phase==='ending'||s.positiveEnding)return s;return{...s,admission:{...s.admission,identityLife:{revision:1,lastRollDay:0,lastEventDay:0,lastId:null,count:0}}};}
+function upgradeIdentityEvents(s){if(!s?.admission?.identityLife||s.admission.identityLife.revision>=2||s.phase==='ending'||s.positiveEnding||s.admission.pending?.kind==='identity')return s;return{...s,admission:{...s.admission,identityLife:{...s.admission.identityLife,revision:2}}};}
+const storyPool=s=>s.admission.identityLife.revision>=2?identityEvents.pool:identityEvents.legacyPool;
+function encounter(s){
+ const life=s.admission.identityLife;if(!life||s.phase!=='choice'||s.failed||s.lottery?.won||s.admission.pending||life.lastRollDay===s.day||life.lastEventDay&&s.day-life.lastEventDay<3)return s;
+ if(s.school?.pending||s.majorLife?.pending||s.miniGames?.pending||s.relationships?.pending||s.campusLife?.pending||s.journeys?.pending||s.rhythm?.pending||s.medical||s.evolution?.care||s.campusRevision?.proposal)return s;
+ const scene=scope(s,()=>B.getScene(s));
+ if(!scene?.choices?.length||scene.kind==='三餐'||scene.schoolScene||scene.majorScene||scene.romanceScene||scene.mouseScene||/^(term-|evo-|clinic|love-|active-|campus83-|major-|school-|journey-)/.test(s.eventId))return s;
+ if(s.admission.id==='classmate'&&!s.romance?.connected||scope(s,()=>B.freeMinutes({...s,phase:'outcome'}))<10)return s;
+ const nextLife={...life,lastRollDay:s.day},ad={...s.admission,identityLife:nextLife};
+ const r=rng(s.seed,'identity-event:'+s.day);if(r()>=.5)return{...s,admission:ad};
+ const choices=storyPool(s)[ad.id].filter(e=>e.id!==life.lastId),event=choices[Math.floor(r()*choices.length)];
+ return{...s,admission:{...ad,identityLife:{...nextLife,lastEventDay:s.day,lastId:event.id,count:life.count+1},pending:{kind:'identity',key:event.id,at:s.rhythm.clock,done:false,previous:{eventId:s.eventId}}}};
+}
+function identityScene(s){const p=s.admission.pending,e=storyPool(s)[s.admission.id].find(e=>e.id===p.key);return{...e,time:clock(p.at),choices:p.done?[]:e.choices.map(c=>({...c,mods:{...c.mods},flags:{...c.flags},...((c.mods.money||0)<-s.stats.money?{disabledReason:'生活费不足'}:{})}))};}
+function chooseIdentity(s,index){
+ const p=s.admission.pending,scene=identityScene(s),c=scene.choices[index];if(p.done||s.phase!=='choice'||!Number.isInteger(index)||!c||c.disabledReason)throw Error('当前不能这样选择');
+ const stats=scope(s,()=>apply(s.stats,c.mods)),romance={...s.romance};if(c.affection&&romance.connected){romance.intimacy=clamp(romance.intimacy+c.affection);romance.lastMeet=s.day;romance.lastInteraction=s.day;}
+ const entry={day:s.day,step:s.step,eventId:scene.id,index,time:scene.time,place:scene.place,title:scene.title,choice:c.text,result:c.result,changes:delta(s.stats,stats),flags:{...c.flags},project:c.project,minutes:10,identityEvent:scene.id,intimacyChange:romance.intimacy-s.romance.intimacy};
+ const flags={...s.flags};for(const [k,v]of Object.entries(c.flags))flags[k]=(flags[k]||0)+v;
+ let n={...s,stats,romance,flags,term:{...s.term,progress:s.term.progress+c.project},phase:'outcome',outcome:entry,log:[...s.log,entry],rhythm:{...s.rhythm,clock:p.at+10,spent:s.rhythm.spent+10},admission:{...s.admission,pending:{...p,done:true}}};n.failed=failure(n);return scope(s,()=>B.settleNutrition(s,n,c.satiety||0,true));
+}
 const alive=s=>!s.failed&&!s.lottery?.won&&['energy','study','health','mood'].every(k=>s.stats[k]>0);
 const clock=n=>String(Math.floor(n/60)%24).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
 const delta=(a,b)=>Object.fromEntries(B.statKeys(a).filter(k=>a[k]!==b[k]).map(k=>[k,b[k]-a[k]]));
@@ -95,7 +119,7 @@ function jobList(s){
  const free=scope(s,()=>B.freeMinutes(s));
  return jobs.filter(j=>free>=j.minutes).map(j=>({id:j.id,label:j.label+' · ¥'+quotedPay(s,j)+' · '+j.minutes+' 分钟',...(j.id==='work-tutor'&&(s.stats.study<=80||s.log.some(e=>e.day===s.day&&e.campusActivity==='work-tutor'))?{disabledReason:s.stats.study<=80?'学业高于80可以接家教':'今天已完成一单家教'}:{})}));
 }
-function workScene(s){const p=s.admission.pending;if(p.kind==='club')return{id:s.eventId,time:clock(p.at),place:'学生活动中心',kind:'校园新篇',title:s.outcome.title,text:'',emoji:'🤝',choices:[]};const j=workById.get(p.key);return{id:'admission-'+j.id,time:clock(p.at),place:j.place,kind:'校园兼职',title:j.label,text:j.id==='work-tutor'?'学生带来了几道没想明白的题，先听听卡在了哪一步。':'岗位已经准备好了，确认一下今天的安排。',emoji:'🧾',choices:p.done?[]:[{text:'认真完成这份工作',mods:{energy:-j.energy,money:quotedPay(s,j)},minutes:j.minutes,flags:{job:1},...(j.id==='work-tutor'&&s.stats.study<=80?{disabledReason:'学业高于80可以接家教'}:{})},{text:'今天先不接',mods:{},flags:{},cancel:true}]};}
+function workScene(s){const p=s.admission.pending;if(p.kind==='identity')return identityScene(s);if(p.kind==='club')return{id:s.eventId,time:clock(p.at),place:'学生活动中心',kind:'校园新篇',title:s.outcome.title,text:'',emoji:'🤝',choices:[]};const j=workById.get(p.key);return{id:'admission-'+j.id,time:clock(p.at),place:j.place,kind:'校园兼职',title:j.label,text:j.id==='work-tutor'?'学生带来了几道没想明白的题，先听听卡在了哪一步。':'岗位已经准备好了，确认一下今天的安排。',emoji:'🧾',choices:p.done?[]:[{text:'认真完成这份工作',mods:{energy:-j.energy,money:quotedPay(s,j)},minutes:j.minutes,flags:{job:1},...(j.id==='work-tutor'&&s.stats.study<=80?{disabledReason:'学业高于80可以接家教'}:{})},{text:'今天先不接',mods:{},flags:{},cancel:true}]};}
 function startActivity(s,key){
  if(s.admission&&['join-creative','join-sport'].includes(key)){
   if(!ready(s)||scope(s,()=>B.freeMinutes(s))<5)throw Error('先完成眼前的安排');
@@ -110,6 +134,7 @@ function startActivity(s,key){
 }
 function choose(s,index){
  const p=s.admission?.pending;if(!p)return scope(s,()=>B.choose(s,index));
+ if(p.kind==='identity')return chooseIdentity(s,index);
  if(p.done||s.phase!=='choice'||![0,1].includes(index))throw Error('工作已经结束');
  if(index===1)return{...s,...p.previous,admission:{...s.admission,pending:null}};
  const j=workById.get(p.key);if(j.id==='work-tutor'&&s.stats.study<=80)throw Error('学业高于80可以接家教');
@@ -117,8 +142,14 @@ function choose(s,index){
  const n={...s,stats,phase:'outcome',outcome:entry,log:[...s.log,entry],rhythm:{...s.rhythm,clock:p.at+j.minutes,spent:s.rhythm.spent+j.minutes},admission:{...s.admission,pending:{...p,done:true}}};n.failed=failure(n);
  return scope(s,()=>B.settleNutrition(s,n,0,true));
 }
-function next(s){const p=s.admission?.pending;if(!p)return scope(s,()=>B.next(s));if(!p.done||s.phase!=='outcome')throw Error('先完成眼前的工作');if(s.failed)return{...s,phase:'ending',finalEnding:s.failed,admission:{...s.admission,pending:null}};return scope(s,()=>B.next({...s,...p.previous,admission:{...s.admission,pending:null}}));}
-function support(s,n){if(n.day===s.day||n.failed||Math.floor((n.day-1)/7)===Math.floor((s.day-1)/7))return 0;return 200+(s.admission.id==='director'?30:s.admission.id==='rich'?100:0)+(has(s,'gold-bank')?50:0);}
+function next(s){const p=s.admission?.pending;if(!p)return scope(s,()=>B.next(s));if(!p.done||s.phase!=='outcome')throw Error('先完成眼前的安排');if(p.kind==='identity')return scope(s,()=>B.next({...s,eventId:p.previous.eventId,admission:{...s.admission,pending:null}}));if(s.failed)return{...s,phase:'ending',finalEnding:s.failed,admission:{...s.admission,pending:null}};return scope(s,()=>B.next({...s,...p.previous,admission:{...s.admission,pending:null}}));}
+function enableDailyAllowance(s){if(!s?.admission||s.admission.allowance||s.phase==='ending'||s.positiveEnding)return s;return{...s,admission:{...s.admission,allowance:{revision:1,lastPaidDay:s.day}}};}
+function support(s,n){
+ if(n.day<=s.day||n.failed)return 0;
+ const weekChanged=Math.floor((n.day-1)/7)>Math.floor((s.day-1)/7),allowance=s.admission.allowance;
+ if(allowance){if(n.day<=allowance.lastPaidDay)return 0;return(s.admission.id==='rich'?150:50)+(weekChanged?(s.admission.id==='director'?30:0)+(has(s,'gold-bank')?50:0):0);}
+ if(!weekChanged)return 0;return 200+(s.admission.id==='director'?30:s.admission.id==='rich'?100:0)+(has(s,'gold-bank')?50:0);
+}
 function effects(s,n,key){
  if(n===s)return s;
  const ad={...(n.admission||s.admission),daily:s.admission.daily.day===n.day?clone(s.admission.daily):{day:n.day,used:{}},chapters:[...s.admission.chapters]};
@@ -128,7 +159,7 @@ function effects(s,n,key){
   const replaced=has(s,'gold-job')?(e.talentTriggers||[]).filter(t=>t.id==='jobHand').reduce((a,t)=>a+(t.changes?.money||0),0):0;
   const wage=Math.max(0,(e.changes.money||0)-(e.journalRewardReceived||0)-replaced),isJob=!!e.flags?.job||e.eventId==='term-shift'&&e.index===0;
   if(isJob&&wage>0){
-   if(e.eventId.startsWith('admission-work-')&&!has(s,'gold-job')&&has(s,'jobHand')&&n.talentEffects&&!n.talentEffects.daily.used.includes('jobHand')){money+=2;n={...n,talentEffects:{...n.talentEffects,daily:{...n.talentEffects.daily,used:[...n.talentEffects.daily.used,'jobHand']}}};}
+   if((e.eventId.startsWith('admission-work-')||e.identityEvent)&&!has(s,'gold-job')&&has(s,'jobHand')&&n.talentEffects&&!n.talentEffects.daily.used.includes('jobHand')){money+=2;n={...n,talentEffects:{...n.talentEffects,daily:{...n.talentEffects.daily,used:[...n.talentEffects.daily.used,'jobHand']}}};}
    if(ad.id==='workstudy')money+=Math.round(wage*.3);
    if(has(s,'gold-job')&&(used.job||0)<2){used.job=(used.job||0)+1;money+=15-replaced;}
   }
@@ -156,13 +187,13 @@ function effects(s,n,key){
   log[i]=e;if(outcome===original)outcome=e;
  }
  const amount=key==='continueDay'?support(s,n):0;
- if(amount){stats.money+=amount;log.push({day:n.day,step:-1,eventId:'admission-support',index:0,time:'07:00',title:'生活费到账',choice:'收下本周生活费',result:'本周生活费与额外补助已经到账。',changes:{money:amount},flags:{},project:0});}
+ if(amount){stats.money+=amount;const daily=!!s.admission.allowance;if(daily)ad.allowance={...ad.allowance,lastPaidDay:n.day};log.push({day:n.day,step:-1,eventId:'admission-support',index:0,time:'07:00',title:'生活费到账',choice:daily?'收下今日生活费':'收下本周生活费',result:daily?'家里转来的生活费已经到账。'+(amount>(s.admission.id==='rich'?150:50)?'额外补助也一并到账。':''):'本周生活费与额外补助已经到账。',changes:{money:amount},flags:{},project:0});}
  if(ad.id==='liang')stats.mood=100;
  if(ad.mealPerk&&ad.mealPerk.until<n.day)ad.mealPerk=null;
  let failed=n.failed;if(failed==='fail-mood'&&stats.mood>0)failed=failure({...n,stats,failed:null});
  if(key==='continueDay'&&ad.id==='celebrity'&&n.day>s.day&&!failed)ad.contacts=[...ad.contacts,...offers({...n,admission:ad})];
  const partner=ad.contacts.find(c=>c.id===ad.partnerId);if(partner){ad.contacts=ad.contacts.map(c=>c.id===partner.id?{...c,romance:clone(romance),relationships:clone(n.relationships),notes:clone(n.campusLife?.notes||[])}:c);}
- return{...n,stats,romance,term,outcome,log,failed,admission:ad};
+ const settled={...n,stats,romance,term,outcome,log,failed,admission:ad};return key==='next'?encounter(settled):settled;
 }
 function canManageFans(s){return!!s.admission&&s.phase==='outcome'&&alive(s)&&!s.admission.pending&&!s.relationships?.pending&&!s.miniGames?.pending&&!s.majorLife?.pending&&!s.campusRevision?.proposal;}
 function respondFan(s,id,accept){
@@ -182,10 +213,10 @@ function focusContact(s,id){
  return{...s,romance:clone(c.romance),relationships:clone(c.relationships),campusLife:{...s.campusLife,notes:clone(c.notes||[])},admission:{...s.admission,contacts,partnerId:id}};
 }
 function upgradeAdmission(s){if(!s?.admission||(s.admission.mealRevision||s.admission.revision)>=2||s.phase==='ending'||s.positiveEnding)return s;return{...s,admission:{...s.admission,mealRevision:2,mealPerk:null}};}
-const mutations=new Set(['choose','next','startActivity','completeMini','cancelMini','continueDay','retire','selectCourses','upgradeTimetable','startMajor','majorAct','cancelMajor','skipMajor',...Object.keys(B).filter(k=>k.startsWith('enable')&&typeof B[k]==='function'),'respondFan','focusContact','upgradeAdmission']);
-const custom={choose,next,startActivity,respondFan,focusContact,upgradeAdmission},wrapped={};
+const mutations=new Set(['choose','next','startActivity','completeMini','cancelMini','continueDay','retire','selectCourses','upgradeTimetable','startMajor','majorAct','cancelMajor','skipMajor',...Object.keys(B).filter(k=>k.startsWith('enable')&&typeof B[k]==='function'),'respondFan','focusContact','upgradeAdmission','enableIdentityEvents','upgradeIdentityEvents','enableDailyAllowance']);
+const custom={choose,next,startActivity,respondFan,focusContact,upgradeAdmission,enableIdentityEvents,upgradeIdentityEvents,enableDailyAllowance},wrapped={};
 for(const key of mutations)if(custom[key]||typeof B[key]==='function')wrapped[key]=(s,...args)=>{
- if(!s?.admission)return key==='upgradeAdmission'?s:B[key](s,...args);
+ if(!s?.admission)return key==='upgradeAdmission'||key==='enableIdentityEvents'||key==='upgradeIdentityEvents'||key==='enableDailyAllowance'?s:B[key](s,...args);
  const n=scope(s,()=>custom[key]?custom[key](s,...args):B[key](s,...args));if(n===s)return s;
  const value=effects(s,n,key);return{...value,admission:{...value.admission,moves:[...s.admission.moves,JSON.stringify([key,args])]}};
 };
@@ -199,10 +230,10 @@ function restore(raw){
 }
 const moneyLabel=t=>String(t).replaceAll('饭钱','生活费');
 const getScene=s=>s.admission?.pending?workScene(s):scope(s,()=>B.getScene(s));
-const api={...B,...wrapped,identities,goldenTraits:golden,traits,identityDraft,talentDraft,createCampus,selectedTraits:selected,identityOf:s=>byIdentity.get(s?.admission?.id),identityFamily:family,canManageFans,
+const api={...B,...wrapped,identities,goldenTraits:golden,traits,identityDraft,talentDraft,createCampus,selectedTraits:selected,identityOf:s=>byIdentity.get(s?.admission?.id),identityFamily:family,canManageFans,labThreshold,
  getScene,availableActivities:s=>s.admission?.pending?[]:[...scope(s,()=>B.availableActivities(s)),...jobList(s),...(ready(s)&&scope(s,()=>B.freeMinutes(s))>=5?['creative','sport'].filter(id=>s.journeys?.backgroundId!==id).map(id=>({id:'join-'+id,label:id==='creative'?'加入创作社':'加入运动社'})):[])],
  labels:{...B.labels,money:'生活费'},restore,valid:s=>restore(s)!==null,
- restPreview:s=>{const rest=scope(s,()=>B.restPreview(s));if(!s.admission)return rest;const extra=s.day%7===0&&!rest.failed?200+(s.admission.id==='director'?30:s.admission.id==='rich'?100:0)+(has(s,'gold-bank')?50:0):0;return{...rest,stats:{...rest.stats,money:rest.stats.money+extra},changes:{...rest.changes,...(extra?{money:(rest.changes.money||0)+extra}:{})}};},
+ restPreview:s=>{const rest=scope(s,()=>B.restPreview(s));if(!s.admission)return rest;const extra=support(s,{day:s.day+1,failed:rest.failed});return{...rest,stats:{...rest.stats,money:rest.stats.money+extra},changes:{...rest.changes,...(extra?{money:(rest.changes.money||0)+extra}:{})}};},
  fullness:s=>scope(s,()=>B.fullness(s)),freeMinutes:s=>s.admission?.pending?0:scope(s,()=>B.freeMinutes(s)),
  ending:s=>{const e=B.ending(s);return{...e,name:moneyLabel(e.name),quote:moneyLabel(e.quote)};}
 };

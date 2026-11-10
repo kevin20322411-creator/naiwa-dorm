@@ -17,7 +17,7 @@ function boot(storage=new Map(),search='',blockedWrites=new Set()){
  return{document,storage,audioCalls,clipboardCalls,G:ctx.DormGame,A:ctx.DormAchievementBook,html:()=>html,saved:()=>JSON.parse(storage.get('naiwa-dorm-run-v2')||'null')};
 }
 function pickIdentity(ui){const cards=ui.document.querySelectorAll('[data-identity]');if(cards.length&&!/class="identity-card[^"]*\bselected\b/.test(ui.html()))cards[0].onclick();}
-const releaseUI=boot();assert(releaseUI.document.querySelector('#release-modal').open,'进入时自动展示公告');assert.equal(releaseUI.document.querySelector('#release-version').textContent,'v9.6');assert(releaseUI.document.querySelector('#release-list').innerHTML.includes('新增身份'));assert(!/概率|100万|1000000|20%|亲密度|触发条件/.test(releaseUI.document.querySelector('#release-list').innerHTML),'公告不泄露结果与条件');
+const releaseUI=boot();assert(releaseUI.document.querySelector('#release-modal').open,'进入时自动展示公告');assert.equal(releaseUI.document.querySelector('#release-version').textContent,'v9.7');assert(releaseUI.document.querySelector('#release-list').innerHTML.includes('新增身份'));assert(!/概率|100万|1000000|20%|亲密度|触发条件/.test(releaseUI.document.querySelector('#release-list').innerHTML),'公告不泄露结果与条件');
 releaseUI.document.querySelector('#release-accept').onclick();assert(!releaseUI.document.querySelector('#release-modal').open);assert(boot(releaseUI.storage).document.querySelector('#release-modal').open,'未选择不再提醒时，下次进入仍展示');releaseUI.document.querySelector('#version-btn').onclick();assert(releaseUI.document.querySelector('#release-modal').open,'顶部版本可重新查看');releaseUI.document.querySelector('#release-skip').checked=true;releaseUI.document.querySelector('#release-close').onclick();assert(!boot(releaseUI.storage).document.querySelector('#release-modal').open,'同版本不再提醒');const olderRelease=boot(new Map([['naiwa-dorm-release-hidden','"6.11"']]));assert(olderRelease.document.querySelector('#release-modal').open,'新版本重新提醒');olderRelease.document.querySelector('#release-modal').oncancel({preventDefault(){}});assert(!olderRelease.document.querySelector('#release-modal').open,'Escape可关闭');assert.equal(releaseUI.saved(),null,'公告操作不修改游戏存档');
 const lockUI=boot();lockUI.document.querySelector('#new-run').onclick();
 lockUI.document.querySelector('#player-name').value='锁定奶蛙';
@@ -257,3 +257,26 @@ classmateUI.document.querySelector('#campus-open').onclick();visibleCourseProjec
 classmateUI.document.querySelector('#campus-return').onclick();visibleCourseProject(classmateUI);
 assert(classmateUI.G.valid(classmateUI.saved()),'界面修复保持存档可回放');
 console.log('通过：老同学关系文案、课设进度常驻并与存档同步、地图往返及移除饭卡。');
+
+const soloActions=classmateUI.G.availableActivities(classmateUI.saved()).filter(a=>!a.partner),soloButtons=classmateUI.document.querySelectorAll('[data-activity]').map(b=>b.dataset.activity);
+assert(soloActions.some(a=>a.id==='work-library'),'此时确实有新增兼职可选');
+for(const action of soloActions)assert(soloButtons.includes(action.id),'自由安排不能漏掉：'+action.id);
+const libraryMoney=classmateUI.saved().stats.money,openLibrary=classmateUI.document.querySelectorAll('[data-activity]').find(b=>b.dataset.activity==='work-library').onclick;
+openLibrary();assert.equal(classmateUI.saved().admission.pending.key,'work-library');const libraryChoiceSave=classmateUI.storage.get('naiwa-dorm-run-v2');openLibrary();assert.equal(classmateUI.storage.get('naiwa-dorm-run-v2'),libraryChoiceSave,'旧兼职入口不能重复执行');
+classmateUI.document.querySelectorAll('[data-choice]')[0].onclick();assert.equal(classmateUI.saved().stats.money-libraryMoney,25);assert(classmateUI.G.valid(classmateUI.saved()));
+const admittedState=classmateUI.G.choose(classmateUI.G.createCampus(72,['brain','regularSleep','slowWarm'],'保送生','admitted'),0),admittedMap=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(admittedState)]]));
+admittedMap.document.querySelector('#resume-run').onclick();admittedMap.document.querySelector('#campus-open').onclick();admittedMap.document.querySelectorAll('[data-place]').find(b=>b.dataset.place==='lab').onclick();
+assert(admittedMap.html().includes('学业达到 65'),'地图说明要匹配保送生进组门槛');assert(!admittedMap.html().includes('学业达到 75 后可以申请加入课题组'));
+console.log('通过：新增兼职与社团在自由安排中可见，地图进组门槛匹配身份。');
+
+const appSource=fs.readFileSync(source+'app.js','utf8'),fanSource=appSource.slice(appSource.indexOf('function fanHTML(){'),appSource.indexOf('function bindFans('));
+function contactStatus(connected){return vm.runInNewContext(fanSource+';fanHTML();',{state:{day:1,romance:{dating:false},admission:{id:'celebrity',partnerId:'fan-1',contacts:[{id:'fan-1',name:'小桃',day:1,status:'known',romance:{connected}}]}},G:{canManageFans:()=>true},asset:name=>'./assets/'+name,esc:s=>s});}
+assert(contactStatus(true).includes('正在联系'));assert(!contactStatus(false).includes('正在联系'));assert(contactStatus(false).includes('已断联'));assert(/data-fan-focus="fan-1" disabled/.test(contactStatus(false)));
+console.log('通过：联系人断联后显示准确状态，并禁止继续联系。');
+
+const identityExample=require('./identity-events.cjs').examples.director,identityUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(identityExample)]]));
+identityUI.document.querySelector('#resume-run').onclick();assert(identityUI.html().includes(identityUI.G.getScene(identityExample).title));assert.equal(identityUI.document.querySelectorAll('[data-choice]').length,3);
+const identityBefore=identityUI.storage.get('naiwa-dorm-run-v2');identityUI.document.querySelector('#campus-open').onclick();identityUI.document.querySelector('#campus-return').onclick();assert.equal(identityUI.storage.get('naiwa-dorm-run-v2'),identityBefore,'查看地图不能推进身份事件');
+const identityChoice=identityUI.document.querySelectorAll('[data-choice]')[0].onclick;identityChoice();assert(identityUI.saved().outcome.identityEvent);assert(identityUI.G.valid(identityUI.saved()));const identityResult=identityUI.storage.get('naiwa-dorm-run-v2');identityChoice();assert.equal(identityUI.storage.get('naiwa-dorm-run-v2'),identityResult,'身份事件不能重复结算');
+const identityReload=boot(identityUI.storage);identityReload.document.querySelector('#resume-run').onclick();assert.equal(identityReload.storage.get('naiwa-dorm-run-v2'),identityResult);identityReload.document.querySelector('#next-scene').onclick();assert(identityReload.G.valid(identityReload.saved()));assert(!identityReload.saved().admission.pending||identityReload.saved().admission.pending.kind!=='identity');
+console.log('通过：身份事件的选择、地图往返、刷新恢复、继续日程与重复点击保护。');
