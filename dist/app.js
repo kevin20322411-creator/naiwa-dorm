@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const G=window.DormGame,E=window.DormExpressions,W=window.DormWorld,M=window.DormCampus,C=window.DormCanteen,S=window.DormSchoolUI,U=window.DormMajorUI,A=window.DormAchievementBook,F=window.DormEndingBook,app=document.querySelector('#app'),saveKey='naiwa-dorm-run-v2',bookKey='naiwa-dorm-endings-v1',evidenceKey='naiwa-dorm-achievement-evidence-v1',backgroundKey='naiwa-dorm-backgrounds-v1',finalesKey='naiwa-dorm-finales-v1';
-const RELEASE={version:'9.7',date:'2026.11.10',items:['新增身份专属随机事件','调整家庭生活费发放','完善兼职与社团入口','修正地图条件与联系人状态']};
+const RELEASE={version:'9.8',date:'2026.11.10',items:['早餐分档菜单','新增早餐套餐与配图','调整校外餐食价格','调整富二代开局生活费']};
 const read=(k,fallback)=>{try{return JSON.parse(localStorage.getItem(k))??fallback;}catch{return fallback;}};
 const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch{return false;}};
 const esc=s=>String(s).replaceAll('饭钱','生活费').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -355,7 +355,7 @@ function gameView(){
  renderEpoch++;clearCard();
  view='game';
  if(!state){home();return;}
- const admissionUpgrade=G.enableDailyAllowance(G.upgradeIdentityEvents(G.enableIdentityEvents(G.upgradeAdmission(state))));if(admissionUpgrade!==state){state=admissionUpgrade;persist();}
+ const admissionUpgrade=G.upgradeBreakfastRewards(G.upgradeDiningMenu(G.enableDailyAllowance(G.upgradeIdentityEvents(G.enableIdentityEvents(G.upgradeAdmission(state))))));if(admissionUpgrade!==state){state=admissionUpgrade;persist();}
  const characterUpgrade=G.enableCharacter(G.enableCampusRevision(G.enableLottery(G.enableEvolution(G.enableCampus(G.enableWellness(G.enableMeetings(G.enableIllness(G.enableFood(G.enableRhythm(G.enableStory(G.enableRomance(G.enableBalance(G.enableCare(G.enableLife(state)))))))))))))));const upgraded=G.enableMini(G.enableMealTuning(G.enableExpansion(G.enableNutrition(G.enableAudit(G.enableJourneys(G.enableRelationships(G.enableSocialUpdate(G.enableDining(characterUpgrade)))))))));if(upgraded!==state){state=upgraded;persist();}
  if(state.phase==='ending'||state.phase==='dayEnd'){endingView();return;}
  if(U&&state.majorLife?.pending){majorInteractionView();return;}

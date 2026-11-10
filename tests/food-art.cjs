@@ -12,6 +12,10 @@ for(const [name,art] of arts){
  assert.equal((art.match(/<g\b/g)||[]).length,(art.match(/<\/g>/g)||[]).length,name+' has balanced ingredient groups');
 }
 const requires={
+ '蜂蜜燕麦酸奶杯':['yogurt-cup','oat-flakes','honey'], '香蕉坚果酸奶碗':['banana','nuts'],
+ '杂粮饭团配茶叶蛋':['rice-ball','tea-egg'], '火腿芝士可颂套餐':['croissant','ham-and-cheese','coffee'],
+ '鲜橙汁鸡蛋三明治套餐':['egg-sandwich','orange-juice'], '焦糖法式吐司套餐':['french-toast','caramel','coffee'],
+ '烟熏三文鱼贝果套餐':['open-bagel','smoked-salmon','coffee'], '班尼迪克蛋早午餐':['poached-egg','english-muffin','hollandaise'],
  '红豆双皮奶':['milk-pudding','red-beans'], '芋泥酸奶碗':['taro-puree','banana','strawberry'],
  '抹茶小蛋糕':['matcha-cake'], '水果松饼':['pancakes','banana','strawberry'],
  '宿舍燕麦':['oat-flakes'], '室友共享吐司':['toast'], '勤工早餐':['steamed-bun'],

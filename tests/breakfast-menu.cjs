@@ -1,0 +1,20 @@
+const assert=require('node:assert/strict'),G=require('../dist/positive-endings.js'),C=require('../dist/canteen-ui.js'),{until}=require('./admission.cjs');
+const clone=s=>JSON.parse(JSON.stringify(s)),traits=['gold-brain','gold-battery','optimist'],create=id=>G.createCampus(72,traits,'三餐菜单',id);
+const s=create('rich'),morning=G.getScene(s);assert.equal(morning.mealPeriod,'breakfast');
+assert(!morning.choices.some(c=>/火锅|烤肉|牛排|酒店|海鲜自助|盖饭|烤鸡/.test(c.text)),'all breakfast stalls exclude main-meal dishes');
+for(const stall of ['sweet','noodle','rice','special','outside']){const rows=morning.choices.filter(c=>c.stall===stall);assert(rows.length>=4,stall+' has its own breakfast choices');for(const c of rows)assert(C.foodArt(C.nameOf(c)).includes('data-food-recipe="named"'),c.text+' has matching art');}
+assert(morning.choices.some(c=>c.text==='贝果咖啡套餐 · ¥22'));assert(morning.choices.some(c=>c.text==='街边葱油拌面 · ¥10'));
+const richBalance=s.stats.money,normal=create('blogger');assert.equal(richBalance-normal.stats.money,1000);assert(G.goldenTraits.find(t=>t.id==='gold-bank').desc.includes('每7天额外补贴＋50'));assert(!G.goldenTraits.find(t=>t.id==='gold-bank').desc.includes('每天'));
+const index=morning.choices.findIndex(c=>c.text.startsWith('贝果咖啡套餐')),fed=G.choose(s,index);assert.equal(fed.outcome.minutes,30);assert.equal(fed.outcome.changes.money,-22);assert(G.valid(fed));
+const local=create('local'),localIndex=G.getScene(local).choices.findIndex(c=>c.text.startsWith('贝果咖啡套餐')),localFed=G.choose(local,localIndex);assert.equal(localFed.outcome.minutes,20);assert.equal(localFed.outcome.changes.money,-20);assert(G.valid(localFed));
+for(const period of ['lunch','dinner']){const at=until(create('rich'),s=>s.phase==='choice'&&G.getScene(s)?.id==='meal-'+period),scene=G.getScene(at);assert.equal(scene.mealPeriod,period);assert(scene.choices.some(c=>c.text==='街边葱油拌面 · ¥10'));assert(scene.choices.some(c=>c.text==='香菇鸡腿盖饭 · ¥18'));assert(scene.choices.some(c=>c.text==='香煎鸡排套餐 · ¥28'));assert(!scene.choices.some(c=>/可颂|贝果咖啡|班尼迪克/.test(c.text)));assert(scene.choices.some(c=>c.text==='酒店主厨品鉴套餐 · ¥350'));}
+for(const old of Object.values(require('./fixtures/menus-v97.json'))){assert.deepEqual(G.restore(clone(old)),old);const up=G.upgradeDiningMenu(old);assert.deepEqual(up.stats,old.stats);assert.deepEqual(up.log,old.log);assert.deepEqual(G.restore(clone(up)),up);}
+const old=require('./fixtures/menus-v97.json');assert.equal(old.initial.stats.money,600);assert.equal(old.lunch.outcome.changes.money,-25);assert(!G.getScene(G.upgradeDiningMenu(old.initial)).choices.some(c=>c.text.includes('酒店')));
+const salmonIndex=morning.choices.findIndex(c=>c.text.startsWith('烟熏三文鱼贝果套餐')),salmon=G.choose(s,salmonIndex);
+assert.equal(salmon.outcome.changes.health,2);assert.equal(salmon.outcome.changes.charm,2);assert.equal(salmon.outcome.changes.money,-38);assert(G.valid(salmon));
+const previous=require('./fixtures/breakfast-benefits-v98.json');
+for(const state of Object.values(previous)){assert.deepEqual(G.restore(clone(state)),state);const upgraded=G.upgradeBreakfastRewards(state);assert.deepEqual(upgraded.stats,state.stats);assert.deepEqual(upgraded.log,state.log);assert.deepEqual(G.restore(clone(upgraded)),upgraded);assert.strictEqual(G.upgradeBreakfastRewards(upgraded),upgraded);}
+assert.equal(previous.outcome.outcome.changes.health,1);assert.equal(previous.outcome.outcome.changes.charm,1);
+const improved=G.choose(G.upgradeBreakfastRewards(previous.initial),salmonIndex);assert.equal(improved.outcome.changes.health,2);assert.equal(improved.outcome.changes.charm,2);assert(G.valid(improved));
+const capped=G.choose({...s,stats:{...s.stats,health:99,charm:99}},salmonIndex);assert.equal(capped.stats.health,100);assert.equal(capped.stats.charm,100);assert.equal(capped.outcome.changes.health,1);assert.equal(capped.outcome.changes.charm,1);
+console.log('Breakfast menu passed: separate stalls, named illustrations, breakfast duration and discount, affordable main meals, rich opening bonus and exact historical receipts.');

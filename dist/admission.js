@@ -14,7 +14,7 @@ const identities=[
  {id:'classmate',name:'奶粉的老同学',mods:{},desc:'已有奶粉联系方式、亲密度20，并知道一项喜好。'},
  {id:'blogger',name:'校园博主',mods:{charm:8},desc:'魅力＋8；拍到目标照片获稿费10，每天一次。'},
  {id:'celebrity',name:'男明星',gold:true,mods:{},desc:'开局魅力100；每天有2～3位奶粉主动要联系方式。'},
- {id:'rich',name:'富二代',gold:true,mods:{money:300},desc:'开局生活费＋300；家里每天给150。'},
+ {id:'rich',name:'富二代',gold:true,mods:{money:1000},desc:'开局生活费＋1000；家里每天给150。'},
  {id:'liang',name:'良子',mods:{},desc:'饱食度消耗翻倍，心情恒定100。'}
 ].map(Object.freeze);
 const golden=[
@@ -22,7 +22,7 @@ const golden=[
  {id:'gold-brain',family:'brain',name:'学神附体',icon:'📖',mods:{study:30},desc:'学业＋30；每日首次到课，额外课设＋3。'},
  {id:'gold-job',family:'jobHand',name:'打工皇帝',icon:'🧾',mods:{},desc:'每次兼职额外获得15生活费，每日最多两次。'},
  {id:'gold-battery',family:'battery',name:'永动奶蛙',icon:'⚡',mods:{energy:40},desc:'电量＋40；每日首次休息，额外电量＋10。'},
- {id:'gold-bank',family:'piggyBank',name:'财运亨通',icon:'💰',mods:{money:200},desc:'生活费＋200；每7天额外获得50。'}
+ {id:'gold-bank',family:'piggyBank',name:'财运亨通',icon:'💰',mods:{money:200},desc:'开局生活费＋200；每7天额外补贴＋50。'}
 ].map(t=>Object.freeze({...t,gold:true,hideMods:true}));
 const byIdentity=new Map(identities.map(i=>[i.id,i])),byGold=new Map(golden.map(t=>[t.id,t]));
 const traits=[...B.traits,...golden],family=id=>byGold.get(id)?.family||id;
@@ -49,7 +49,7 @@ const selected=s=>s.admission?.loadout||B.selectedTraits(s),has=(s,id)=>selected
 const labThreshold=s=>s?.admission?.id==='admitted'?65:75;
 function scope(s,run){
  if(!s?.admission)return run();
- const id=s.admission.id,execute=()=>B.withUncappedMoney(()=>B.withCampusRules({labThreshold:labThreshold(s)},()=>B.withDiningRules({newMenu:true,menuRevision:s.admission.mealRevision||s.admission.revision,factor:id==='liang'?2:1,outsideFactor:id==='local'?.9:1,outsideMinutes:id==='local'?35:45},run)));
+ const id=s.admission.id,execute=()=>B.withUncappedMoney(()=>B.withCampusRules({labThreshold:labThreshold(s)},()=>B.withDiningRules({newMenu:true,menuRevision:s.admission.mealRevision||s.admission.revision,factor:id==='liang'?2:1,outsideFactor:id==='local'?.9:1,outsideMinutes:id==='local'?35:45,outsideBreakfastMinutes:id==='local'?20:30},run)));
  return id==='liang'?B.withMoodLock(execute):execute();
 }
 function apply(s,mods){return B.withUncappedMoney(()=>B.apply(s,mods));}
@@ -60,9 +60,9 @@ function offers(s){
  const r=rng(s.seed,'fans:'+s.day),n=r()<.5?2:3;
  return Array.from({length:n},(_,i)=>{const p=(s.day-1)*3+i;return{id:'fan-'+s.day+'-'+i,day:s.day,name:names[p%names.length]+' · '+clubs[Math.floor(p/names.length)%clubs.length],status:'offered',notes:[],romance:{connected:true,intimacy:20,dating:false,familiar:0,lastMeet:s.day,lastInteraction:s.day,earned:false,earnedDay:0},relationships:{...clone(s.relationships),activity:['quiet','art','sport'][Math.floor(r()*3)],taste:['fruit','cocoa','tea'][Math.floor(r()*3)],known:[],promise:null,strain:0,kept:0,pending:null}};});
 }
-function initial(base,id,loadout,revision=2){
+function initial(base,id,loadout,revision=4){
  const definition=byIdentity.get(id);if(!definition)throw Error('请选择一个身份');
- let stats=apply(base.stats,{money:260,...Object.fromEntries(Object.entries(definition.mods).filter(([k])=>k!=='money'))});stats.money=base.stats.money+260+(definition.mods.money||0);
+ let stats=apply(base.stats,{money:260,...Object.fromEntries(Object.entries(definition.mods).filter(([k])=>k!=='money'))});stats.money=base.stats.money+260+(id==='rich'&&revision<3?300:definition.mods.money||0);
  for(const key of loadout){
   if(key==='gold-flirt')stats=apply(stats,{charm:20});
   if(key==='gold-brain')stats=apply(stats,{study:10,energy:8});
@@ -213,16 +213,18 @@ function focusContact(s,id){
  return{...s,romance:clone(c.romance),relationships:clone(c.relationships),campusLife:{...s.campusLife,notes:clone(c.notes||[])},admission:{...s.admission,contacts,partnerId:id}};
 }
 function upgradeAdmission(s){if(!s?.admission||(s.admission.mealRevision||s.admission.revision)>=2||s.phase==='ending'||s.positiveEnding)return s;return{...s,admission:{...s.admission,mealRevision:2,mealPerk:null}};}
-const mutations=new Set(['choose','next','startActivity','completeMini','cancelMini','continueDay','retire','selectCourses','upgradeTimetable','startMajor','majorAct','cancelMajor','skipMajor',...Object.keys(B).filter(k=>k.startsWith('enable')&&typeof B[k]==='function'),'respondFan','focusContact','upgradeAdmission','enableIdentityEvents','upgradeIdentityEvents','enableDailyAllowance']);
-const custom={choose,next,startActivity,respondFan,focusContact,upgradeAdmission,enableIdentityEvents,upgradeIdentityEvents,enableDailyAllowance},wrapped={};
+function upgradeDiningMenu(s){if(!s?.admission||(s.admission.mealRevision||s.admission.revision)>=3||s.phase==='ending'||s.positiveEnding)return s;return{...s,admission:{...s.admission,mealRevision:3}};}
+function upgradeBreakfastRewards(s){if(!s?.admission||(s.admission.mealRevision||s.admission.revision)>=4||s.phase==='ending'||s.positiveEnding)return s;return{...s,admission:{...s.admission,mealRevision:4}};}
+const mutations=new Set(['choose','next','startActivity','completeMini','cancelMini','continueDay','retire','selectCourses','upgradeTimetable','startMajor','majorAct','cancelMajor','skipMajor',...Object.keys(B).filter(k=>k.startsWith('enable')&&typeof B[k]==='function'),'respondFan','focusContact','upgradeAdmission','enableIdentityEvents','upgradeIdentityEvents','enableDailyAllowance','upgradeDiningMenu','upgradeBreakfastRewards']);
+const custom={choose,next,startActivity,respondFan,focusContact,upgradeAdmission,enableIdentityEvents,upgradeIdentityEvents,enableDailyAllowance,upgradeDiningMenu,upgradeBreakfastRewards},wrapped={};
 for(const key of mutations)if(custom[key]||typeof B[key]==='function')wrapped[key]=(s,...args)=>{
- if(!s?.admission)return key==='upgradeAdmission'||key==='enableIdentityEvents'||key==='upgradeIdentityEvents'||key==='enableDailyAllowance'?s:B[key](s,...args);
+ if(!s?.admission)return key==='upgradeAdmission'||key==='enableIdentityEvents'||key==='upgradeIdentityEvents'||key==='enableDailyAllowance'||key==='upgradeDiningMenu'||key==='upgradeBreakfastRewards'?s:B[key](s,...args);
  const n=scope(s,()=>custom[key]?custom[key](s,...args):B[key](s,...args));if(n===s)return s;
  const value=effects(s,n,key);return{...value,admission:{...value.admission,moves:[...s.admission.moves,JSON.stringify([key,args])]}};
 };
 function restore(raw){
  if(!raw?.admission)return B.restore(raw);
- try{const a=raw.admission;if(![1,2].includes(a.revision)||a.base?.admission||!Array.isArray(a.moves)||a.moves.length>30000||!Array.isArray(a.loadout)||new Set(a.loadout.map(family)).size!==3)return null;
+ try{const a=raw.admission;if(![1,2,3,4].includes(a.revision)||a.base?.admission||!Array.isArray(a.moves)||a.moves.length>30000||!Array.isArray(a.loadout)||new Set(a.loadout.map(family)).size!==3)return null;
   const base=B.restore(a.base);if(!base||!byIdentity.has(a.id)||!same(B.selectedTraits(base),a.loadout.map(family)))return null;
   let s=initial(base,a.id,a.loadout,a.revision);for(const move of a.moves){const row=JSON.parse(move);if(!Array.isArray(row)||row.length!==2||!wrapped[row[0]]||!Array.isArray(row[1]))return null;s=wrapped[row[0]](s,...row[1]);}
   return same(s,raw)?s:null;

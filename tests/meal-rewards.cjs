@@ -1,7 +1,7 @@
-const assert=require('node:assert/strict'),G=require('../dist/positive-endings.js'),C=require('../dist/canteen-ui.js');
+const assert=require('node:assert/strict'),G=require('../dist/positive-endings.js'),C=require('../dist/canteen-ui.js'),{until}=require('./admission.cjs');
 const clone=s=>JSON.parse(JSON.stringify(s)),old=require('./fixtures/admission-v96-preview.json');
 for(const saved of Object.values(old)){assert.deepEqual(G.restore(clone(saved)),saved);const up=G.upgradeAdmission(saved);assert.equal(up.admission.mealRevision,2);assert.deepEqual(G.restore(clone(up)),up);assert.strictEqual(G.upgradeAdmission(up),up);assert.deepEqual(up.stats,saved.stats);assert.deepEqual(up.log,saved.log);}
-let s=G.createCampus(72,['gold-brain','gold-battery','gold-bank'],'用餐','rich');
+let s=until(G.createCampus(72,['gold-brain','gold-battery','gold-bank'],'用餐','rich'),s=>s.phase==='choice'&&G.getScene(s)?.id==='meal-lunch');
 const options=G.getScene(s).choices,cheap=options.find(c=>c.text.startsWith('街边葱油拌面')),premium=options.find(c=>c.text.startsWith('酒店主厨品鉴套餐'));
 assert.equal(cheap.mods.energy,24);assert.equal(premium.mods.energy,68);assert(premium.mods.mood>cheap.mods.mood*5);assert(!cheap.mealPerk);assert.equal(premium.mealPerk.remaining,6);
 assert.equal(G.getScene(old.initial).choices.find(c=>c.text.startsWith('酒店主厨品鉴套餐')).mods.energy,35,'preview history retains its original recovery');
