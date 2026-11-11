@@ -58,7 +58,24 @@ function offers(s){
  const names=['小桃','小柚','小棠','小梨','小满','小夏','小岚','小橙','小葵','小禾','小桐','小星','小鹿','小茉','小晴','小溪','小初','小晚','小秋','小月'];
  const clubs=['摄影社','图书馆','同课班级','志愿队','篮球场','校园广播站','乐队'];
  const r=rng(s.seed,'fans:'+s.day),n=r()<.5?2:3;
- return Array.from({length:n},(_,i)=>{const p=(s.day-1)*3+i;return{id:'fan-'+s.day+'-'+i,day:s.day,name:names[p%names.length]+' · '+clubs[Math.floor(p/names.length)%clubs.length],status:'offered',notes:[],romance:{connected:true,intimacy:20,dating:false,familiar:0,lastMeet:s.day,lastInteraction:s.day,earned:false,earnedDay:0},relationships:{...clone(s.relationships),activity:['quiet','art','sport'][Math.floor(r()*3)],taste:['fruit','cocoa','tea'][Math.floor(r()*3)],known:[],promise:null,strain:0,kept:0,pending:null}};});
+ const history=s.admission.fanBook?{lastTalkDay:0,talks:0,lastPlanDay:0,lastCrisisDay:0}:{};
+ return Array.from({length:n},(_,i)=>{const p=(s.day-1)*3+i;return{id:'fan-'+s.day+'-'+i,day:s.day,name:names[p%names.length]+' · '+clubs[Math.floor(p/names.length)%clubs.length],status:'offered',notes:[],romance:{connected:true,intimacy:20,dating:false,familiar:0,lastMeet:s.day,lastInteraction:s.day,earned:false,earnedDay:0},relationships:{...clone(s.relationships),...history,activity:['quiet','art','sport'][Math.floor(r()*3)],taste:['fruit','cocoa','tea'][Math.floor(r()*3)],known:[],promise:null,strain:0,kept:0,pending:null}};});
+}
+const fanSurnames=Array.from('林许陈周沈苏夏宋叶陆梁唐程温乔顾江黎方何');
+function fanIdentity(contact){
+ const [nickname,place]=contact.name.split(' · ');
+ const match=/^fan-(\d+)-(\d+)$/.exec(contact.id);
+ if(!match)return{name:nickname,place};
+ const position=(Number(match[1])-1)*3+Number(match[2]),group=Math.floor(position/20);
+ const series=Math.floor(group/fanSurnames.length);
+ return{name:fanSurnames[(group+position%20*7)%fanSurnames.length]+nickname+(series?'（'+(series+1)+'）':''),place};
+}
+const isFanInteraction=scene=>!!scene&&(scene.romanceScene||scene.id==='campus83-campus-chat');
+function enableFanBook(s,revision=1){
+ if(s.admission?.id!=='celebrity'||(s.admission.fanBook||0)>=revision||![1,2].includes(revision)||s.phase==='ending'||s.positiveEnding)return s;
+ const pending=s.relationships?.pending;
+ const relationships=pending?.done&&s.eventId!=='love-'+pending.key?{...s.relationships,pending:null}:s.relationships;
+ return{...s,relationships,admission:{...s.admission,fanBook:revision}};
 }
 function initial(base,id,loadout,revision=4){
  const definition=byIdentity.get(id);if(!definition)throw Error('请选择一个身份');
@@ -76,7 +93,7 @@ function initial(base,id,loadout,revision=4){
 }
 function createCampus(seed,loadout,name,id,recent=[],major='cs',selection){
  if(loadout.length!==3||new Set(loadout.map(family)).size!==3||loadout.some(t=>!traits.some(x=>x.id===t)))throw Error('请选择三个不同系列的天赋');
- return wrapped.enableDailyAllowance(wrapped.upgradeIdentityEvents(wrapped.enableIdentityEvents(initial(B.create(seed,loadout.map(family),name,recent,'freshman',major,selection),id,loadout))));
+ return wrapped.enableFanBook(wrapped.enableDailyAllowance(wrapped.upgradeIdentityEvents(wrapped.enableIdentityEvents(initial(B.create(seed,loadout.map(family),name,recent,'freshman',major,selection),id,loadout)))),2);
 }
 const jobs=[
  {id:'work-library',label:'图书馆整理',place:'图书馆',minutes:30,money:25,energy:8},
@@ -142,7 +159,22 @@ function choose(s,index){
  const n={...s,stats,phase:'outcome',outcome:entry,log:[...s.log,entry],rhythm:{...s.rhythm,clock:p.at+j.minutes,spent:s.rhythm.spent+j.minutes},admission:{...s.admission,pending:{...p,done:true}}};n.failed=failure(n);
  return scope(s,()=>B.settleNutrition(s,n,0,true));
 }
-function next(s){const p=s.admission?.pending;if(!p)return scope(s,()=>B.next(s));if(!p.done||s.phase!=='outcome')throw Error('先完成眼前的安排');if(p.kind==='identity')return scope(s,()=>B.next({...s,eventId:p.previous.eventId,admission:{...s.admission,pending:null}}));if(s.failed)return{...s,phase:'ending',finalEnding:s.failed,admission:{...s.admission,pending:null}};return scope(s,()=>B.next({...s,...p.previous,admission:{...s.admission,pending:null}}));}
+function next(s){
+ const p=s.admission?.pending;
+ if(!p){
+  const conversation=s.relationships?.pending;
+  if(s.admission?.fanBook&&s.phase==='outcome'&&!s.failed&&conversation?.done){
+   // Close the finished conversation before the timetable can open a lesson.
+   const returned={...s,...conversation.previous,relationships:{...s.relationships,pending:null}};
+   return scope(s,()=>B.next(returned));
+  }
+  return scope(s,()=>B.next(s));
+ }
+ if(!p.done||s.phase!=='outcome')throw Error('先完成眼前的安排');
+ if(p.kind==='identity')return scope(s,()=>B.next({...s,eventId:p.previous.eventId,admission:{...s.admission,pending:null}}));
+ if(s.failed)return{...s,phase:'ending',finalEnding:s.failed,admission:{...s.admission,pending:null}};
+ return scope(s,()=>B.next({...s,...p.previous,admission:{...s.admission,pending:null}}));
+}
 function enableDailyAllowance(s){if(!s?.admission||s.admission.allowance||s.phase==='ending'||s.positiveEnding)return s;return{...s,admission:{...s.admission,allowance:{revision:1,lastPaidDay:s.day}}};}
 function support(s,n){
  if(n.day<=s.day||n.failed)return 0;
@@ -150,12 +182,35 @@ function support(s,n){
  if(allowance){if(n.day<=allowance.lastPaidDay)return 0;return(s.admission.id==='rich'?150:50)+(weekChanged?(s.admission.id==='director'?30:0)+(has(s,'gold-bank')?50:0):0);}
  if(!weekChanged)return 0;return 200+(s.admission.id==='director'?30:s.admission.id==='rich'?100:0)+(has(s,'gold-bank')?50:0);
 }
+function missedFanPromises(s,day){
+ const ad=s.admission;
+ if(!(ad?.fanBook>=2))return [];
+ return ad.contacts.filter(c=>c.id!==ad.partnerId&&c.status==='known'&&c.romance.connected&&c.relationships.promise?.dueDay<day);
+}
+function settleFanPromises(s,day,stats,log,contacts){
+ const missed=new Set(missedFanPromises(s,day).map(c=>c.id));
+ return contacts.map(c=>{
+  if(!missed.has(c.id))return c;
+  const {name}=fanIdentity(c),{promise}=c.relationships;
+  const intimacy=Math.max(0,c.romance.intimacy-8),connected=intimacy>0,mood=Math.max(0,stats.mood-3);
+  const romance={...c.romance,intimacy,connected,...(connected?{}:{dating:false,lastMeet:day})};
+  const relationships={...c.relationships,promise:null,strain:connected?Math.min(4,c.relationships.strain+1):0};
+  log.push({day,step:-1,eventId:'love-bond-missed',index:0,time:'06:59',title:'错过了和'+name+'的约定',choice:promise.label,
+   result:'约好的时间过去了，'+name+'有些失落。',changes:mood===stats.mood?{}:{mood:mood-stats.mood},flags:{},project:0,
+   intimacyChange:intimacy-c.romance.intimacy,contactDeleted:!connected,fanContactId:c.id});
+  stats.mood=mood;
+  return{...c,romance,relationships};
+ });
+}
 function effects(s,n,key){
  if(n===s)return s;
  const ad={...(n.admission||s.admission),daily:s.admission.daily.day===n.day?clone(s.admission.daily):{day:n.day,used:{}},chapters:[...s.admission.chapters]};
  let stats={...n.stats},romance=n.romance,term=n.term,outcome=n.outcome,log=[...n.log];
+ const contactId=ad.fanBook&&s.admission.partnerId;
+ const namedScene=contactId&&s.romance.connected&&key==='choose'&&isFanInteraction(scope(s,()=>B.getScene(s)));
  for(let i=s.log.length;i<log.length;i++){
   const original=log[i],e={...original,changes:{...original.changes}},used=ad.daily.used;let money=0,project=0,energy=0,mood=0,affection=0;
+  if(contactId&&((namedScene&&e.eventId===s.eventId)||e.eventId==='love-bond-missed'))e.fanContactId=contactId;
   const replaced=has(s,'gold-job')?(e.talentTriggers||[]).filter(t=>t.id==='jobHand').reduce((a,t)=>a+(t.changes?.money||0),0):0;
   const wage=Math.max(0,(e.changes.money||0)-(e.journalRewardReceived||0)-replaced),isJob=!!e.flags?.job||e.eventId==='term-shift'&&e.index===0;
   if(isJob&&wage>0){
@@ -171,7 +226,7 @@ function effects(s,n,key){
   if((ad.mealRevision||ad.revision)>=2){
    const perk=ad.mealPerk;
    if(e.mealPerk)ad.mealPerk={...e.mealPerk,until:e.day+1};
-   else if(perk&&perk.until>=e.day&&perk.remaining>0&&!e.flags?.meal&&!e.fanReply&&!n.failed&&['choose','completeMini','majorAct'].includes(key)){
+   else if(perk&&perk.until>=e.day&&perk.remaining>0&&!e.flags?.meal&&!e.fanReply&&!n.failed&&(['choose','completeMini','majorAct'].includes(key)||e.schoolAutoPlan)){
     const recoverEnergy=Math.max(0,Math.min(perk.energy,100-stats.energy-energy)),recoverMood=ad.id==='liang'?0:Math.max(0,Math.min(perk.mood,100-stats.mood));
     if(recoverEnergy||recoverMood){energy+=recoverEnergy;mood+=recoverMood;e.mealRecovery={energy:recoverEnergy,mood:recoverMood};ad.mealPerk=perk.remaining>1?{...perk,remaining:perk.remaining-1}:null;}
    }
@@ -186,13 +241,26 @@ function effects(s,n,key){
   if(e.mealRecovery)e.result+='\n这一餐攒下的精神还在，做完事情也没那么疲惫。';
   log[i]=e;if(outcome===original)outcome=e;
  }
- const amount=key==='continueDay'?support(s,n):0;
+ const advancingDay=key==='continueDay'&&n.day>s.day;
+ let failed=n.failed;
+ if(advancingDay&&!failed&&ad.fanBook>=2){
+  ad.contacts=settleFanPromises(s,n.day,stats,log,ad.contacts);
+  if(stats.mood===0)failed='fail-mood';
+ }
+ const amount=advancingDay?support(s,{...n,failed}):0;
  if(amount){stats.money+=amount;const daily=!!s.admission.allowance;if(daily)ad.allowance={...ad.allowance,lastPaidDay:n.day};log.push({day:n.day,step:-1,eventId:'admission-support',index:0,time:'07:00',title:'生活费到账',choice:daily?'收下今日生活费':'收下本周生活费',result:daily?'家里转来的生活费已经到账。'+(amount>(s.admission.id==='rich'?150:50)?'额外补助也一并到账。':''):'本周生活费与额外补助已经到账。',changes:{money:amount},flags:{},project:0});}
  if(ad.id==='liang')stats.mood=100;
  if(ad.mealPerk&&ad.mealPerk.until<n.day)ad.mealPerk=null;
- let failed=n.failed;if(failed==='fail-mood'&&stats.mood>0)failed=failure({...n,stats,failed:null});
- if(key==='continueDay'&&ad.id==='celebrity'&&n.day>s.day&&!failed)ad.contacts=[...ad.contacts,...offers({...n,admission:ad})];
+ if(failed==='fail-mood'&&stats.mood>0)failed=failure({...n,stats,failed:null});
+ if(advancingDay&&ad.id==='celebrity'&&!failed)ad.contacts=[...ad.contacts,...offers({...n,admission:ad})];
  const partner=ad.contacts.find(c=>c.id===ad.partnerId);if(partner){ad.contacts=ad.contacts.map(c=>c.id===partner.id?{...c,romance:clone(romance),relationships:clone(n.relationships),notes:clone(n.campusLife?.notes||[])}:c);}
+ if(ad.fanBook>=2&&partner&&!romance.connected){
+  ad.partnerId=null;
+  romance={...romance,familiar:0,earned:false,earnedDay:0};
+  const relationships={...clone(ad.base.relationships),pending:n.relationships.pending};
+  n={...n,relationships,campusLife:{...n.campusLife,notes:[]}};
+ }
+ if(advancingDay&&failed&&!n.failed)n={...n,phase:'ending',finalEnding:failed};
  const settled={...n,stats,romance,term,outcome,log,failed,admission:ad};return key==='next'?encounter(settled):settled;
 }
 function canManageFans(s){return!!s.admission&&s.phase==='outcome'&&alive(s)&&!s.admission.pending&&!s.relationships?.pending&&!s.miniGames?.pending&&!s.majorLife?.pending&&!s.campusRevision?.proposal;}
@@ -201,24 +269,30 @@ function respondFan(s,id,accept){
  let romance={...s.romance},relationships=s.relationships,stats={...s.stats},partnerId=s.admission.partnerId;
  let result=accept?'你们交换了联系方式，之后可以再聊。':'你礼貌说明了自己的想法，对方点点头，继续自己的安排。';
  if(accept&&!romance.connected){romance=clone(contact.romance);relationships=clone(contact.relationships);partnerId=id;}
- else if(accept&&romance.dating){romance.intimacy=Math.max(0,romance.intimacy-8);stats=scope(s,()=>apply(stats,{mood:-3}));result+='\n新的联系让现有关系有些紧张，需要认真沟通。';if(!romance.intimacy){romance.connected=false;romance.dating=false;relationships={...relationships,promise:null,strain:0};result+=' 这段关系结束了。';}}
- const entry={day:s.day,step:-1,eventId:'fan-contact',index:accept?0:1,time:clock(s.rhythm.clock),title:contact.name+'向你要联系方式',choice:accept?'交换联系方式':'礼貌婉拒',result,changes:delta(s.stats,stats),flags:{},project:0,fanReply:true,contactDeleted:s.romance.connected&&!romance.connected,intimacyChange:romance.intimacy-s.romance.intimacy};
+ else if(accept&&romance.dating&&!s.admission.fanBook){romance.intimacy=Math.max(0,romance.intimacy-8);stats=scope(s,()=>apply(stats,{mood:-3}));result+='\n新的联系让现有关系有些紧张，需要认真沟通。';if(!romance.intimacy){romance.connected=false;romance.dating=false;relationships={...relationships,promise:null,strain:0};result+=' 这段关系结束了。';}}
+ const name=s.admission.fanBook?fanIdentity(contact).name:contact.name;
+ const entry={day:s.day,step:-1,eventId:'fan-contact',index:accept?0:1,time:clock(s.rhythm.clock),title:name+'向你要联系方式',choice:accept?'交换联系方式':'礼貌婉拒',result,changes:delta(s.stats,stats),flags:{},project:0,fanReply:true,contactDeleted:s.romance.connected&&!romance.connected,intimacyChange:romance.intimacy-s.romance.intimacy};
  return{...s,stats,romance,relationships,failed:failure({...s,stats}),...(accept&&!s.romance.connected?{campusLife:{...s.campusLife,notes:clone(contact.notes||[])}}:{}),log:[...s.log,entry],admission:{...s.admission,partnerId,contacts:s.admission.contacts.map(c=>c.id===id?{...c,status:accept?'known':'declined'}:c)}};
 }
 function focusContact(s,id){
  if(!canManageFans(s))throw Error('先完成眼前的安排');if(s.romance.dating)throw Error('先和当前恋人认真决定如何继续');
  const c=s.admission.contacts.find(c=>c.id===id&&c.status==='known'&&c.romance.connected);if(!c||s.admission.partnerId===id)throw Error('这位同学目前无法继续联系');
  const contacts=s.admission.contacts.map(x=>x.id===s.admission.partnerId?{...x,romance:clone(s.romance),relationships:clone(s.relationships),notes:clone(s.campusLife?.notes||[])}:x);
- if(!s.admission.partnerId&&s.romance.connected&&!contacts.some(x=>x.id==='campus-naifen'))contacts.push({id:'campus-naifen',name:'奶粉',day:s.day,status:'known',romance:clone(s.romance),relationships:clone(s.relationships),notes:clone(s.campusLife?.notes||[])});
+ if(!s.admission.partnerId&&s.romance.connected){
+  const index=contacts.findIndex(x=>x.id==='campus-naifen');
+  const original={id:'campus-naifen',name:'奶粉',day:s.day,status:'known',romance:clone(s.romance),relationships:clone(s.relationships),notes:clone(s.campusLife?.notes||[])};
+  if(index<0)contacts.push(original);
+  else if(s.admission.fanBook>=2)contacts[index]=original;
+ }
  return{...s,romance:clone(c.romance),relationships:clone(c.relationships),campusLife:{...s.campusLife,notes:clone(c.notes||[])},admission:{...s.admission,contacts,partnerId:id}};
 }
 function upgradeAdmission(s){if(!s?.admission||(s.admission.mealRevision||s.admission.revision)>=2||s.phase==='ending'||s.positiveEnding)return s;return{...s,admission:{...s.admission,mealRevision:2,mealPerk:null}};}
 function upgradeDiningMenu(s){if(!s?.admission||(s.admission.mealRevision||s.admission.revision)>=3||s.phase==='ending'||s.positiveEnding)return s;return{...s,admission:{...s.admission,mealRevision:3}};}
 function upgradeBreakfastRewards(s){if(!s?.admission||(s.admission.mealRevision||s.admission.revision)>=4||s.phase==='ending'||s.positiveEnding)return s;return{...s,admission:{...s.admission,mealRevision:4}};}
-const mutations=new Set(['choose','next','startActivity','completeMini','cancelMini','continueDay','retire','selectCourses','upgradeTimetable','startMajor','majorAct','cancelMajor','skipMajor',...Object.keys(B).filter(k=>k.startsWith('enable')&&typeof B[k]==='function'),'respondFan','focusContact','upgradeAdmission','enableIdentityEvents','upgradeIdentityEvents','enableDailyAllowance','upgradeDiningMenu','upgradeBreakfastRewards']);
-const custom={choose,next,startActivity,respondFan,focusContact,upgradeAdmission,enableIdentityEvents,upgradeIdentityEvents,enableDailyAllowance,upgradeDiningMenu,upgradeBreakfastRewards},wrapped={};
+const mutations=new Set(['choose','next','startActivity','completeMini','cancelMini','continueDay','retire','selectCourses','planCourseAttendance','upgradeTimetable','startMajor','majorAct','cancelMajor','skipMajor',...Object.keys(B).filter(k=>k.startsWith('enable')&&typeof B[k]==='function'),'respondFan','focusContact','upgradeAdmission','enableIdentityEvents','upgradeIdentityEvents','enableDailyAllowance','upgradeDiningMenu','upgradeBreakfastRewards','enableFanBook']);
+const custom={choose,next,startActivity,respondFan,focusContact,upgradeAdmission,enableIdentityEvents,upgradeIdentityEvents,enableDailyAllowance,upgradeDiningMenu,upgradeBreakfastRewards,enableFanBook},wrapped={};
 for(const key of mutations)if(custom[key]||typeof B[key]==='function')wrapped[key]=(s,...args)=>{
- if(!s?.admission)return key==='upgradeAdmission'||key==='enableIdentityEvents'||key==='upgradeIdentityEvents'||key==='enableDailyAllowance'||key==='upgradeDiningMenu'||key==='upgradeBreakfastRewards'?s:B[key](s,...args);
+ if(!s?.admission)return key==='upgradeAdmission'||key==='enableIdentityEvents'||key==='upgradeIdentityEvents'||key==='enableDailyAllowance'||key==='upgradeDiningMenu'||key==='upgradeBreakfastRewards'||key==='enableFanBook'?s:B[key](s,...args);
  const n=scope(s,()=>custom[key]?custom[key](s,...args):B[key](s,...args));if(n===s)return s;
  const value=effects(s,n,key);return{...value,admission:{...value.admission,moves:[...s.admission.moves,JSON.stringify([key,args])]}};
 };
@@ -232,10 +306,38 @@ function restore(raw){
 }
 const moneyLabel=t=>String(t).replaceAll('饭钱','生活费');
 const getScene=s=>s.admission?.pending?workScene(s):scope(s,()=>B.getScene(s));
-const api={...B,...wrapped,identities,goldenTraits:golden,traits,identityDraft,talentDraft,createCampus,selectedTraits:selected,identityOf:s=>byIdentity.get(s?.admission?.id),identityFamily:family,canManageFans,labThreshold,
- getScene,availableActivities:s=>s.admission?.pending?[]:[...scope(s,()=>B.availableActivities(s)),...jobList(s),...(ready(s)&&scope(s,()=>B.freeMinutes(s))>=5?['creative','sport'].filter(id=>s.journeys?.backgroundId!==id).map(id=>({id:'join-'+id,label:id==='creative'?'加入创作社':'加入运动社'})):[])],
+function availableActivities(s){
+ if(s.admission?.pending)return[];
+ const contact=s.admission?.contacts.find(c=>c.id===s.admission.partnerId);
+ const name=contact?.id.startsWith('fan-')?fanIdentity(contact).name:'';
+ const activities=scope(s,()=>B.availableActivities(s)).map(a=>name&&a.partner
+  ?{...a,label:a.label.replace(/奶粉|你的宝宝|她的(?=近况)/g,word=>word==='她的'?name+'的':name)}:a);
+ const clubs=ready(s)&&scope(s,()=>B.freeMinutes(s))>=5
+  ?['creative','sport'].filter(id=>s.journeys?.backgroundId!==id).map(id=>({id:'join-'+id,label:id==='creative'?'加入创作社':'加入运动社'})):[];
+ return [...activities,...jobList(s),...clubs];
+}
+function restPreview(s){
+ const rest=scope(s,()=>B.restPreview(s));
+ if(!s.admission)return rest;
+ const day=s.day+1,stats={...rest.stats},changes={...rest.changes};
+ let failed=rest.failed;
+ if(!failed){
+  const penalty=Math.min(stats.mood,missedFanPromises(s,day).length*3);
+  if(penalty){
+   stats.mood-=penalty;
+   changes.mood=(changes.mood||0)-penalty;
+   if(stats.mood===0)failed='fail-mood';
+  }
+ }
+ const extra=support(s,{day,failed});
+ stats.money+=extra;
+ if(extra)changes.money=(changes.money||0)+extra;
+ return{...rest,stats,changes,failed};
+}
+const api={...B,...wrapped,identities,goldenTraits:golden,traits,identityDraft,talentDraft,createCampus,selectedTraits:selected,identityOf:s=>byIdentity.get(s?.admission?.id),identityFamily:family,canManageFans,fanIdentity,isFanInteraction,labThreshold,
+ getScene,availableActivities,
  labels:{...B.labels,money:'生活费'},restore,valid:s=>restore(s)!==null,
- restPreview:s=>{const rest=scope(s,()=>B.restPreview(s));if(!s.admission)return rest;const extra=support(s,{day:s.day+1,failed:rest.failed});return{...rest,stats:{...rest.stats,money:rest.stats.money+extra},changes:{...rest.changes,...(extra?{money:(rest.changes.money||0)+extra}:{})}};},
+ restPreview,
  fullness:s=>scope(s,()=>B.fullness(s)),freeMinutes:s=>s.admission?.pending?0:scope(s,()=>B.freeMinutes(s)),
  ending:s=>{const e=B.ending(s);return{...e,name:moneyLabel(e.name),quote:moneyLabel(e.quote)};}
 };

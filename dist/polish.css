@@ -193,6 +193,12 @@ button { transition: background .16s, border-color .16s, box-shadow .16s, transf
 .campus-shortcut { background: #e8efe2; border-color: #d2ddc9; border-radius: 16px; }
 .campus-shortcut small { font-size: 12px; }
 .opening-buff { font-size: 13px; border-radius: 13px; }
+.ending-next-note {
+  margin: 4px 0 0;
+  color: var(--ui-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
 
 /* Admission, dining and the surrounding campus use the same material palette. */
 .page-heading { max-width: 1240px; padding-top: 42px; }

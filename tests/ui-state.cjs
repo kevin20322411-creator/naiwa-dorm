@@ -17,7 +17,7 @@ function boot(storage=new Map(),search='',blockedWrites=new Set()){
  return{document,storage,audioCalls,clipboardCalls,G:ctx.DormGame,A:ctx.DormAchievementBook,html:()=>html,saved:()=>JSON.parse(storage.get('naiwa-dorm-run-v2')||'null')};
 }
 function pickIdentity(ui){const cards=ui.document.querySelectorAll('[data-identity]');if(cards.length&&!/class="identity-card[^"]*\bselected\b/.test(ui.html()))cards[0].onclick();}
-const releaseUI=boot();assert(releaseUI.document.querySelector('#release-modal').open,'进入时自动展示公告');assert.equal(releaseUI.document.querySelector('#release-version').textContent,'v9.8');assert(releaseUI.document.querySelector('#release-list').innerHTML.includes('早餐分档菜单'));assert(!/概率|100万|1000000|20%|亲密度|触发条件/.test(releaseUI.document.querySelector('#release-list').innerHTML),'公告不泄露结果与条件');
+const releaseUI=boot();assert(releaseUI.document.querySelector('#release-modal').open,'进入时自动展示公告');assert.equal(releaseUI.document.querySelector('#release-version').textContent,'v9.9');assert(releaseUI.document.querySelector('#release-list').innerHTML.includes('新增科研进度'));assert(!/概率|100万|1000000|20%|亲密度|触发条件/.test(releaseUI.document.querySelector('#release-list').innerHTML),'公告不泄露结果与条件');
 releaseUI.document.querySelector('#release-accept').onclick();assert(!releaseUI.document.querySelector('#release-modal').open);assert(boot(releaseUI.storage).document.querySelector('#release-modal').open,'未选择不再提醒时，下次进入仍展示');releaseUI.document.querySelector('#version-btn').onclick();assert(releaseUI.document.querySelector('#release-modal').open,'顶部版本可重新查看');releaseUI.document.querySelector('#release-skip').checked=true;releaseUI.document.querySelector('#release-close').onclick();assert(!boot(releaseUI.storage).document.querySelector('#release-modal').open,'同版本不再提醒');const olderRelease=boot(new Map([['naiwa-dorm-release-hidden','"6.11"']]));assert(olderRelease.document.querySelector('#release-modal').open,'新版本重新提醒');olderRelease.document.querySelector('#release-modal').oncancel({preventDefault(){}});assert(!olderRelease.document.querySelector('#release-modal').open,'Escape可关闭');assert.equal(releaseUI.saved(),null,'公告操作不修改游戏存档');
 const lockUI=boot();lockUI.document.querySelector('#new-run').onclick();
 lockUI.document.querySelector('#player-name').value='锁定奶蛙';
@@ -221,11 +221,12 @@ const realResearch=require('./positive-endings.cjs').realResearch();
 const researchUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(realResearch)]]));researchUI.document.querySelector('#resume-run').onclick();
 assert.equal(researchUI.saved().phase,'dayEnd');assert(researchUI.G.valid(researchUI.saved()));
 assert(researchUI.html().includes('可达成的正向结局'));
+assert(!researchUI.html().includes('aria-label="科研进展"'),'日终只显示可达成的结局');
 assert(!researchUI.storage.has('naiwa-dorm-finales-v1'),'只是满足科研条件时不提前收录结局');
 const chooseResearch=researchUI.document.querySelectorAll('[data-positive-finish]').find(b=>b.dataset.positiveFinish==='ending-research').onclick;
 const staleResearchContinue=researchUI.document.querySelector('#continue-day').onclick,staleResearchRetire=researchUI.document.querySelector('#retire-run').onclick;
 const qualifiedDayEnd=researchUI.storage.get('naiwa-dorm-run-v2');chooseResearch();
-assert.equal(researchUI.saved().phase,'ending');assert.equal(researchUI.saved().finalEnding,'ending-research');assert(researchUI.html().includes('科研成功'));assert(researchUI.html().includes('positive-card'));
+assert.equal(researchUI.saved().phase,'ending');assert.equal(researchUI.saved().finalEnding,'ending-research');assert(researchUI.html().includes('顶刊大佬'));assert(!researchUI.html().includes('aria-label="科研进展"'),'进度条仅在实验室显示');assert(researchUI.html().includes('positive-card'));
 assert(researchUI.G.valid(researchUI.saved()));assert.equal(JSON.stringify(researchUI.saved().positiveEnding.base),qualifiedDayEnd);
 const finishedResearch=researchUI.storage.get('naiwa-dorm-run-v2');chooseResearch();staleResearchContinue();staleResearchRetire();assert.equal(researchUI.storage.get('naiwa-dorm-run-v2'),finishedResearch,'收尾后旧按钮不能重复结束或推进日期');
 const researchProof=researchUI.storage.get('naiwa-dorm-finales-v1');assert(JSON.parse(researchProof)['ending-research'].facts.some(f=>f.includes('实验室活动 18 次')));
@@ -241,8 +242,55 @@ const identityRefresh=boot();identityRefresh.document.querySelector('#new-run').
 const oldIdentityReroll=identityRefresh.document.querySelector('#identity-reroll').onclick;oldIdentityReroll();const afterFirstIdentity=identityRefresh.html();oldIdentityReroll();assert.equal(identityRefresh.html(),afterFirstIdentity,'旧身份刷新回调不能继续消耗次数');identityRefresh.document.querySelector('#identity-reroll').onclick();const lastBatch=identityRefresh.html();identityRefresh.document.querySelector('#identity-reroll').onclick();assert.equal(identityRefresh.html(),lastBatch,'身份最多刷新两次');pickIdentity(identityRefresh);
 identityRefresh.document.querySelectorAll('[data-trait]')[0].onclick();const heldTalent=identityRefresh.document.querySelectorAll('[data-remove-trait]')[0].dataset.removeTrait;identityRefresh.document.querySelector('#reroll').onclick();identityRefresh.document.querySelector('#reroll').onclick();const exhausted=identityRefresh.html();identityRefresh.document.querySelector('#reroll').onclick();assert.equal(identityRefresh.html(),exhausted,'天赋最多刷新两次');assert.equal(identityRefresh.document.querySelectorAll('[data-remove-trait]')[0].dataset.removeTrait,heldTalent,'已选天赋照常保留');
 const celebrityQuery='?seed=72&bg=freshman&identity=celebrity&traits=gold-brain,gold-battery,optimist',celebrityUI=boot(new Map(),celebrityQuery);celebrityUI.document.querySelector('#new-run').onclick();assert(celebrityUI.html().includes('男明星'));assert(celebrityUI.html().includes('rarity-gold'));assert(!/SSR|金色天赋|金色身份/.test(celebrityUI.html()),'金色只通过按钮外观表现');celebrityUI.document.querySelector('#enroll').onclick();assert.equal(celebrityUI.saved().admission.id,'celebrity');assert.equal(celebrityUI.saved().stats.charm,100);assert(celebrityUI.html().includes('生活费'));assert(!celebrityUI.html().includes('饭钱'));
-celebrityUI.document.querySelectorAll('[data-choice]')[0].onclick();const fanButtons=celebrityUI.document.querySelectorAll('[data-fan-reply]');assert([4,6].includes(fanButtons.length));const fanAccept=fanButtons.find(b=>b.dataset.fanReply.endsWith('|yes')).onclick;fanAccept();const afterFan=celebrityUI.storage.get('naiwa-dorm-run-v2');fanAccept();assert.equal(celebrityUI.storage.get('naiwa-dorm-run-v2'),afterFan,'重复点击搭讪不会重复添加或推进剧情');assert(celebrityUI.saved().romance.connected);assert(celebrityUI.G.valid(celebrityUI.saved()));
-const celebReload=boot(celebrityUI.storage);celebReload.document.querySelector('#resume-run').onclick();assert(celebReload.G.valid(celebReload.saved()));assert(celebReload.html().includes('认识的同学'));celebReload.document.querySelector('#pause-run').onclick();celebReload.document.querySelector('#share-start').onclick();assert(celebReload.clipboardCalls[0].includes('identity=celebrity'));assert(celebReload.clipboardCalls[0].includes('gold-brain'));
+celebrityUI.document.querySelectorAll('[data-choice]')[0].onclick();
+const book=celebrityUI.document.querySelector('#fan-book');
+assert(!celebrityUI.html().includes('id="fan-book" open'),'通讯录默认折叠');
+book.open=true;book.ontoggle();
+const invites=celebrityUI.saved().admission.contacts;
+const names=invites.map(c=>celebrityUI.G.fanIdentity(c).name);
+assert([2,3].includes(invites.length));assert.equal(new Set(names).size,invites.length);
+for(const contact of invites){
+ const accept=celebrityUI.document.querySelectorAll('[data-fan-reply]').find(b=>b.dataset.fanReply===contact.id+'|yes').onclick;
+ accept();
+ const accepted=celebrityUI.storage.get('naiwa-dorm-run-v2');
+ accept();
+ assert.equal(celebrityUI.storage.get('naiwa-dorm-run-v2'),accepted,'重复点击搭讪不会重复添加或推进剧情');
+ assert(celebrityUI.html().includes('id="fan-book" open'),'添加后保持展开');
+}
+assert(celebrityUI.html().includes(invites.length+' 位联系人'));
+assert(celebrityUI.saved().admission.contacts.every(c=>c.status==='known'));
+assert(celebrityUI.G.valid(celebrityUI.saved()));
+const firstId=invites[0].id,secondId=invites[1].id;
+const interact=key=>celebrityUI.document.querySelectorAll('[data-activity]').find(b=>b.dataset.activity===key).onclick();
+const switchFan=id=>celebrityUI.document.querySelectorAll('[data-fan-focus]').find(b=>b.dataset.fanFocus===id).onclick();
+switchFan(secondId);
+assert(celebrityUI.html().includes('和'+names[1]+'一起'));
+switchFan(firstId);
+interact('bond-talk');
+assert(celebrityUI.html().match(/id="scene-title">([^<]+)/)[1].includes(names[0]),'互动标题显示当前联系人姓名');
+celebrityUI.document.querySelectorAll('[data-choice]')[0].onclick();
+const firstIntimacy=celebrityUI.saved().romance.intimacy;
+assert(firstIntimacy>20);
+assert.equal(celebrityUI.saved().outcome.fanContactId,firstId);
+assert(celebrityUI.html().match(/<div class="outcome" role="status">.*?<p>(.*?)<\/p>/)[1].includes(names[0]));
+celebrityUI.document.querySelector('#next-scene').onclick();
+assert.equal(celebrityUI.saved().relationships.pending,null,'接着上课前要关闭已经结束的聊天');
+if(celebrityUI.saved().phase==='choice')celebrityUI.document.querySelectorAll('[data-choice]').find(b=>!b.disabled).onclick();
+switchFan(secondId);
+assert.equal(celebrityUI.saved().romance.intimacy,20);
+assert.equal(celebrityUI.saved().admission.partnerId,secondId);
+assert(celebrityUI.html().includes('aria-label="与'+names[1]+'的亲密度"'));
+switchFan(firstId);
+assert.equal(celebrityUI.saved().romance.intimacy,firstIntimacy);
+const celebReload=boot(celebrityUI.storage);
+celebReload.document.querySelector('#resume-run').onclick();
+assert(celebReload.G.valid(celebReload.saved()));
+assert(celebReload.html().includes('通讯录'));
+assert(names.every(name=>celebReload.html().includes(name)));
+celebReload.document.querySelector('#pause-run').onclick();
+celebReload.document.querySelector('#share-start').onclick();
+assert(celebReload.clipboardCalls[0].includes('identity=celebrity'));
+assert(celebReload.clipboardCalls[0].includes('gold-brain'));
 const noIdentityGold=boot(new Map(),celebrityQuery.replace('&identity=celebrity',''));assert(!noIdentityGold.html().includes('体验这个开局'),'旧链接不能混入无法回放的新天赋');
 console.log('通过：身份与天赋刷新上限、已选锁定、金色按钮、生活费标签、男明星多人搭讪、重复点击防护及新身份分享链接。');
 
@@ -270,8 +318,16 @@ assert(admittedMap.html().includes('学业达到 65'),'地图说明要匹配保�
 console.log('通过：新增兼职与社团在自由安排中可见，地图进组门槛匹配身份。');
 
 const appSource=fs.readFileSync(source+'app.js','utf8'),fanSource=appSource.slice(appSource.indexOf('function fanHTML(){'),appSource.indexOf('function bindFans('));
-function contactStatus(connected){return vm.runInNewContext(fanSource+';fanHTML();',{state:{day:1,romance:{dating:false},admission:{id:'celebrity',partnerId:'fan-1',contacts:[{id:'fan-1',name:'小桃',day:1,status:'known',romance:{connected}}]}},G:{canManageFans:()=>true},asset:name=>'./assets/'+name,esc:s=>s});}
-assert(contactStatus(true).includes('正在联系'));assert(!contactStatus(false).includes('正在联系'));assert(contactStatus(false).includes('已断联'));assert(/data-fan-focus="fan-1" disabled/.test(contactStatus(false)));
+function contactStatus(connected){
+ return vm.runInNewContext(fanSource+';fanHTML();',{
+  state:{day:1,romance:{dating:false,connected},admission:{id:'celebrity',partnerId:'fan-1-0',contacts:[{id:'fan-1-0',name:'小桃',day:1,status:'known',romance:{connected:true}}]}},
+  G:{canManageFans:()=>true,fanIdentity:celebrityUI.G.fanIdentity},asset:name=>'./assets/'+name,esc:s=>s,fanBookOpen:false
+ });
+}
+assert(contactStatus(true).includes('当前互动'));
+assert(!contactStatus(false).includes('当前互动'));
+assert(contactStatus(false).includes('已断联'));
+assert(!contactStatus(false).includes('data-fan-focus'));
 console.log('通过：联系人断联后显示准确状态，并禁止继续联系。');
 
 const identityExample=require('./identity-events.cjs').examples.director,identityUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(identityExample)]]));
@@ -285,3 +341,20 @@ const breakfastUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(G.createCamp
 breakfastUI.document.querySelector('#resume-run').onclick();const breakfastSave=breakfastUI.storage.get('naiwa-dorm-run-v2');
 for(const stall of ['sweet','noodle','rice','special','outside']){breakfastUI.document.querySelectorAll('[data-stall]').find(b=>b.dataset.stall===stall).onclick();assert.equal(breakfastUI.storage.get('naiwa-dorm-run-v2'),breakfastSave,'切换早餐档口不推进事件');const html=breakfastUI.html();assert(!/data-food-dish="[^"]*(?:火锅|烤肉|牛排|酒店|海鲜自助|盖饭|烤鸡)/.test(html),'每个早餐档口都只呈现早餐');if(stall==='outside'){assert(html.includes('贝果咖啡套餐'));assert(html.includes('班尼迪克蛋早午餐'));assert(html.includes('data-food-part="croissant"'));}}
 assert(breakfastUI.G.valid(breakfastUI.saved()));console.log('通过：早餐各档口分时菜单、独立配图与只读切换。');
+
+const retiredPlanEngine=require('../dist/admission');
+const oldPlan=retiredPlanEngine.planCourseAttendance(retiredPlanEngine.createCampus(70,['gold-brain','gold-battery','optimist'],'课表','blogger'),'all','attend');
+const retiredPlanUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(oldPlan)]]));
+retiredPlanUI.document.querySelector('#resume-run').onclick();
+assert.equal(retiredPlanUI.saved().school.attendancePlan,undefined);
+assert(!retiredPlanUI.html().includes('安排上课'));
+retiredPlanUI.document.querySelectorAll('[data-school-open]')[0].onclick();
+retiredPlanUI.document.querySelectorAll('[data-school-tab]').find(b=>b.dataset.schoolTab==='today').onclick();
+assert(!retiredPlanUI.html().includes('data-attendance-plan'));
+retiredPlanUI.document.querySelector('#school-back').onclick();
+retiredPlanUI.document.querySelectorAll('[data-choice]')[0].onclick();
+retiredPlanUI.document.querySelector('#next-scene').onclick();
+assert(retiredPlanUI.saved().school.pending);
+assert(retiredPlanUI.html().includes('这节不去了'));
+assert(retiredPlanUI.G.valid(retiredPlanUI.saved()));
+console.log('通过：撤回提前安排入口，旧试玩存档读档后恢复手动上课。');

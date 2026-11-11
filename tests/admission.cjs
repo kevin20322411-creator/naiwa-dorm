@@ -4,7 +4,101 @@ function pick(s){const scene=G.getScene(s),candidates=scene.choices.map((c,i)=>(
 function step(s){if(s.miniGames?.pending){const p=s.miniGames.pending;return G.completeMini(s,{'mini-runner':1,'mini-basket':3,'mini-badminton':6}[p.key]||0);}if(s.majorLife?.pending)return G.skipMajor(s);if(s.phase==='choice')return G.choose(s,pick(s));if(s.phase==='outcome')return G.next(s);if(s.phase==='dayEnd')return G.continueDay(s);return s;}
 function until(s,test,max=700){for(let i=0;i<max;i++){if(test(s))return s;if(s.phase==='ending')break;s=step(s);}throw Error('Target not reached '+JSON.stringify({day:s.day,phase:s.phase,failed:s.failed,stats:s.stats}));}
 const create=(id,traits=['gold-brain','gold-battery','optimist'],seed=4)=>G.createCampus(seed,traits,'身份测试',id);
+function checkFanBook(){
+ const fresh=create('celebrity',undefined,72),{fanBook,...admission}=fresh.admission;
+ // Rebuild a save from before the revised contact rules without altering its game progress.
+ const legacy={...fresh,admission:{...admission,moves:admission.moves.slice(0,-1)}};
+ assert(G.valid(legacy));
+ let run=G.choose(G.enableFanBook(legacy),0);
+ const [first,second]=run.admission.contacts;
+ for(const contact of [first,second])run=G.respondFan(run,contact.id,true);
+ run=G.choose(G.startActivity(run,'bond-plan'),0);
+ const dueDay=run.relationships.promise.dueDay,intimacy=run.romance.intimacy;
+ run=G.focusContact(until(G.next(run),G.canManageFans),second.id);
+ run=until(run,s=>s.phase==='dayEnd'&&s.day===dueDay);
+ assert(G.valid(run));
+ assert(G.continueDay(run).admission.contacts.find(c=>c.id===first.id).relationships.promise,'旧版存档按当时的规则回放');
+ run=G.enableFanBook(run,2);
+ const preview=G.restPreview(run),next=G.continueDay(run);
+ const inactive=next.admission.contacts.find(c=>c.id===first.id);
+ assert.equal(inactive.relationships.promise,null);
+ assert.equal(inactive.romance.intimacy,intimacy-8);
+ assert.equal(next.romance.intimacy,run.romance.intimacy);
+ assert.equal(next.stats.mood,preview.stats.mood);
+ assert.equal(next.stats.money,preview.stats.money);
+ const expired=s=>s.log.filter(e=>e.eventId==='love-bond-missed'&&e.fanContactId===first.id);
+ assert.equal(expired(next).length,1);
+ const following=until(next,s=>s.day===next.day+1);
+ assert.equal(expired(following).length,1);
+ assert(G.valid(following));
+ const free=until(next,s=>G.canManageFans(s)&&G.freeMinutes(s)>=15);
+ const repair=G.startActivity(G.focusContact(free,first.id),'bond-repair');
+ const goodbye=G.choose(repair,3);
+ assert.equal(goodbye.admission.partnerId,null);
+ assert.equal(G.getScene(goodbye).id,'love-bond-repair','主动结束关系后仍可查看本次结果');
+ assert.equal(G.next(goodbye).relationships.pending,null);
+ assert(G.valid(goodbye));
+
+ let separate=G.respondFan(G.choose(fresh,0),first.id,true);
+ for(let i=0;i<400&&separate.romance.connected&&separate.phase!=='ending';i++){
+  if(G.canManageFans(separate)&&G.availableActivities(separate).some(a=>a.id==='ask-chat')){
+   const chat=G.startActivity(separate,'ask-chat');
+   const bad=G.getScene(chat).choices.findIndex(c=>c.affection<0&&!c.disabledReason);
+   if(bad>=0){separate=G.choose(chat,bad);continue;}
+  }
+  separate=step(separate);
+ }
+ assert.equal(separate.romance.connected,false);
+ assert.equal(separate.admission.partnerId,null);
+ assert.equal(separate.admission.contacts.find(c=>c.id===first.id).romance.connected,false);
+ assert(G.valid(separate));
+ for(let i=0;i<400&&separate.phase!=='ending'&&!separate.outcome?.contactAdded;i++){
+  separate=separate.phase==='choice'&&separate.eventId==='love-encounter'?G.choose(separate,0):step(separate);
+ }
+ assert(separate.outcome?.contactAdded);
+ assert.equal(separate.admission.partnerId,null);
+ assert.equal(separate.admission.contacts.find(c=>c.id===first.id).romance.connected,false);
+ assert(G.valid(separate));
+ console.log('Fan book passed: inactive promise expiry, forecast agreement, legacy replay, and distinct reconnection.');
+}
+function checkRetiredAttendancePlan(){
+ const legacy=require('../dist/admission');
+ assert.equal(G.planCourseAttendance,undefined);
+ const fresh=create('blogger',undefined,70);
+ assert.equal(G.enableAttendancePlanRemoval(fresh),fresh);
+ const plan=legacy.planCourseAttendance(fresh,'all','attend');
+ assert(G.valid(plan));
+ const afterBreakfast=legacy.choose(plan,0);
+ const manual=G.next(afterBreakfast);
+ assert.equal(manual.phase,'choice');
+ assert(manual.school.pending);
+ assert.equal(manual.school.attendancePlan,undefined);
+ assert(G.valid(manual));
+
+ const completed=legacy.next(afterBreakfast);
+ assert.equal(completed.outcome.schoolAutoPlan,'attend');
+ assert(G.valid(completed));
+ const resumed=G.enableAttendancePlanRemoval(G.restore(clone(completed)));
+ assert.equal(resumed.school.attendancePlan,undefined);
+ assert.deepEqual(resumed.school.attendance,completed.school.attendance);
+ assert.deepEqual(resumed.stats,completed.stats);
+ assert(G.valid(resumed));
+ const following=until(resumed,s=>s.phase==='choice'&&s.school.pending);
+ assert.equal(following.school.pending.notice,undefined);
+ assert(G.valid(following));
+
+ const invite=legacy.next(legacy.choose(legacy.planCourseAttendance(create('blogger',undefined,81),'all','attend'),0));
+ assert.equal(invite.school.pending.notice,'invite');
+ assert(G.valid(invite));
+ const pending=G.enableAttendancePlanRemoval(G.restore(clone(invite)));
+ assert.equal(pending.school.pending.notice,undefined);
+ assert(!G.getScene(pending).choices.some(c=>c.schoolChoice==='invite'));
+ assert(G.valid(G.choose(pending,0)));
+ console.log('Retired attendance plan passed: manual flow, legacy history and pending lesson migration.');
+}
 function checks(){
+ checkFanBook();
+ checkRetiredAttendancePlan();
  assert.equal(G.identities.length,10);assert.equal(G.goldenTraits.length,5);assert.equal(G.labels.money,'生活费');
  const count=new Map(G.identities.map(x=>[x.id,0]));for(let seed=0;seed<20000;seed++){const batch=G.identityDraft(seed);assert.equal(batch.length,3);assert.equal(new Set(batch).size,3);for(const id of batch)count.set(id,count.get(id)+1);}
  for(const i of G.identities){const rate=count.get(i.id)/60000;assert(Math.abs(rate-(i.gold?.05:.85/7))<.007,i.id+' '+rate);}

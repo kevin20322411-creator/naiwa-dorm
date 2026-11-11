@@ -139,7 +139,7 @@ function majorAct(s,action,value){
 }
 function cancelMajor(s){const p=s.majorLife?.pending;if(!p)throw Error('没有可以取消的专业委托');return record(s,{...s,...p.previous,majorLife:{...s.majorLife,pending:null}},'cancel');}
 function skipMajor(s){const input=s.majorLife?.pending?s:startMajor(s),n=finish(input,true);return record(s,n,'skip');}
-const mutators=['choose','next','startActivity','completeMini','cancelMini','continueDay','retire','selectCourses','upgradeTimetable','enableSchool',...Object.keys(B).filter(k=>k.startsWith('enable')&&k!=='enableSchool'&&typeof B[k]==='function')];
+const mutators=['choose','next','startActivity','completeMini','cancelMini','continueDay','retire','selectCourses','planCourseAttendance','upgradeTimetable','enableSchool',...Object.keys(B).filter(k=>k.startsWith('enable')&&k!=='enableSchool'&&typeof B[k]==='function')];
 const wrapped={};
 function resume(s){return s.outcome?.majorWork&&s.majorLife?.returnTo?{...s,...s.majorLife.returnTo,majorLife:{...s.majorLife,returnTo:null}}:s;}
 for(const key of mutators)wrapped[key]=(s,...args)=>{

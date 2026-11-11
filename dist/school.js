@@ -103,6 +103,38 @@ function selectCourses(s,selection){
  if(legacy(s))return initialize(s,s.school.majorId,selection);if(s.school.revision===2)return selectCourses(upgradeTimetable(s),selection);const selected=canonical(selection),same=JSON.stringify(selected)===JSON.stringify(s.school.selection);if(same&&!s.school.queuedSelection)return s;
  const queuedSelection=same?null:{...selected,effectiveDay:s.day+(7-(s.day-1)%7)};return withAction(s,{...s,school:{...s.school,queuedSelection}},'select',[selected]);
 }
+// Keep the withdrawn preview rules available to replay saves created with them.
+function plannedAttendance(s,lesson){
+ const plan=s.school.attendancePlan;
+ return plan?.day===lesson.day?plan.choices[lesson.id]||null:null;
+}
+function canPlanLesson(s,lesson){
+ return ['choice','outcome'].includes(s.phase)&&!s.failed&&!s.lottery?.won&&!s.miniGames?.pending&&!s.majorLife?.pending
+  &&lesson.day===s.day&&lesson.start>now(s)&&eligible(s,lesson)&&!s.school.attendance[lesson.id];
+}
+function planCourseAttendance(s,lessonId,mode){
+ if(s.school?.revision!==3||!['attend','skip','manual'].includes(mode))throw Error('暂时不能调整到课计划');
+ const editable=lessons(s).filter(l=>canPlanLesson(s,l)&&(lessonId==='all'||l.id===lessonId));
+ if(!editable.length)throw Error('这节课已开始或不在今天的课表上');
+ const plan=s.school.attendancePlan,choices={...(plan?.day===s.day?plan.choices:{})};
+ const planned=mode==='manual'?null:mode;
+ if(editable.every(l=>plannedAttendance(s,l)===planned))return s;
+ for(const l of editable){
+  if(planned)choices[l.id]=planned;
+  else delete choices[l.id];
+ }
+ return withAction(s,{...s,school:{...s.school,attendancePlan:{day:s.day,choices}}},'plan',[lessonId,mode]);
+}
+function enableAttendancePlanRemoval(s){
+ if(s.school?.revision!==3||s.phase==='ending'||s.majorLife?.pending||s.miniGames?.pending)return s;
+ if(!s.school.attendancePlan&&!s.school.pending?.notice)return s;
+ const {attendancePlan,...school}=s.school;
+ if(school.pending?.notice){
+  const {notice,...pending}=school.pending;
+  school.pending=pending;
+ }
+ return withAction(s,{...s,school},'remove-plan');
+}
 function schoolView(s){
  if(older(s))return older(s).schoolView(s);if(!s.school)return null;const major=majorOf(s),monday=s.day-((s.day-1)%7),decorate=l=>{const a=s.school.attendance[l.id],status=a?.status||(eligible(s,l)?'upcoming':'passed');return{...l,status,statusLabel:statuses[status],...(a?{checked:a.checked}:{})};};
  const today=lessons(s).map(decorate),days=weekLabels.map((label,i)=>({label,day:monday+i,lessons:lessons(s,monday+i).map(decorate)})),enrolled=new Set([...requiredFor(major.id),...selectedCourses(s.school.selection)].map(c=>c.id));
@@ -114,12 +146,41 @@ const previous=s=>({phase:s.phase,eventId:s.eventId,outcome:s.outcome});
 function openCourse(s,l,runner=false){return{...s,eventId:l.id,phase:'choice',outcome:null,school:{...s.school,pending:{lesson:l,previous:previous(s),runner},returnTo:null},rhythm:{...s.rhythm,clock:Math.max(now(s),l.start-(runner?10:0))}};}
 const canLeave=s=>!!(s.illness?.active||s.stats.health<55||s.medical&&!s.medical.done||s.evolution?.bite);
 const canRush=(s,l)=>!!s.miniGames&&l.start===480&&!(s.miniGames.daily?.day===s.day&&s.miniGames.daily.base?.runner)&&!s.miniGames.pending&&now(s)<=l.start+10;
+const lessonNotices={
+ rollcall:{title:'临时点名',text:'老师在班群发了消息，开场要点名。'},
+ quiz:{title:'随堂小测',text:'课代表刚通知，这节课开场有个随堂小测。'},
+ invite:{title:'邀约撞课',text:'室友在学生活动中心给你留了个手作体验的位置，开场时间刚好撞上这节课。'}
+};
+function isChecked(s,l,c=courseOf(s,l.courseId)){
+ return B.rng(hash(s.seed+':school-rollcall:'+l.day+':'+l.courseId))()<c.attendanceRate;
+}
+function lessonNotice(s,l){
+ if(now(s)>l.start+10)return null;
+ const roll=B.rng(hash(s.seed+':school-plan-notice:'+l.id))(),course=courseOf(s,l.courseId);
+ if(roll<.10&&isChecked(s,l,course))return 'rollcall';
+ if(roll>=.10&&roll<.18&&course.category!=='pe')return 'quiz';
+ if(roll>=.18&&roll<.26)return 'invite';
+ return null;
+}
+function openScheduledCourse(s,l){
+ const opened=openCourse(s,l),planned=plannedAttendance(s,l);
+ if(!planned)return opened;
+ const notice=lessonNotice(s,l);
+ if(notice)return{...opened,school:{...opened.school,pending:{...opened.school.pending,notice}}};
+ const mode=now(opened)>=l.end?'skip':planned;
+ return finishCourse(opened,mode,null,null,planned);
+}
 function courseScene(s){const p=s.school.pending,l=p.lesson,c=courseOf(s,l.courseId),choices=[
  {text:now(s)>=l.end?'本节已经结束，之后可安排补学':now(s)>l.start+10?'现在到场，完成剩下的练习':c.category==='pe'?'按时到场，热身后认真练习':'按时到教室，认真完成课堂练习',mods:c.category==='pe'?{health:3,mood:2,energy:-6}:{study:c.category==='major'?4:c.category==='common'?3:2},flags:{},schoolChoice:'attend',hint:'课堂结束后留下自己的'+c.work+'。',...(now(s)>=l.end?{disabledReason:'本节已结束，请记录未到或说明请假事由后补学'}:{})},
  {text:'这节不去了',mods:{},flags:{},schoolChoice:'skip',hint:'未到课没有学习或课设收益；只有老师点名才记缺勤。'},
  {text:'身体不舒服，先请个假',mods:{},flags:{},schoolChoice:'leave',hint:'请假不记缺勤，之后可在空闲时补学。',...(canLeave(s)?{}:{disabledReason:'当前没有请假事由'})}
- ];if(c.miniKey&&s.miniGames&&now(s)<l.end)choices.push({text:c.name+'课堂互动 · '+(c.miniKey==='mini-basket'?'投篮挑战':'羽毛球接杀'),mods:{},flags:{},schoolChoice:'pe-mini',hint:'互动属于本节课，只记一次到课和运动；也可选普通练习。'});if(canRush(s,l))choices.push({text:'冲向教室 · 早八赶路',mods:{},flags:{},schoolChoice:'runner',hint:'赶路成功按时到课，失败记迟到；课堂收益只结算一次。'});
- return{id:l.id,courseId:l.courseId,schoolScene:true,category:c.category,categoryLabel:c.categoryLabel,courseKind:c.kind,kind:c.categoryLabel,time:clock(Math.max(now(s),l.start)),place:l.place,title:l.name+' · '+(now(s)>l.start+10?'现在赶去还来得及听一段':'上课时间到了'),text:'第 '+Math.ceil(s.day/7)+' 周 '+weekLabels[(s.day-1)%7]+' · '+l.time+'。今天的小目标：'+c.work+'。',bubble:'带着自己的课表去上课。',emoji:majorOf(s).icon,choices};
+ ];
+ const notice=lessonNotices[p.notice];
+ if(p.notice==='quiz')choices[0].text='去上课，参加随堂小测';
+ if(p.notice==='invite')choices.splice(1,0,{text:'去活动中心找室友，这节课不去了',mods:{},flags:{},schoolChoice:'invite'});
+ if(c.miniKey&&s.miniGames&&now(s)<l.end)choices.push({text:c.name+'课堂互动 · '+(c.miniKey==='mini-basket'?'投篮挑战':'羽毛球接杀'),mods:{},flags:{},schoolChoice:'pe-mini',hint:'互动属于本节课，只记一次到课和运动；也可选普通练习。'});
+ if(canRush(s,l))choices.push({text:'冲向教室 · 早八赶路',mods:{},flags:{},schoolChoice:'runner',hint:'赶路成功按时到课，失败记迟到；课堂收益只结算一次。'});
+ return{id:l.id,courseId:l.courseId,schoolScene:true,category:c.category,categoryLabel:c.categoryLabel,courseKind:c.kind,kind:c.categoryLabel,time:clock(Math.max(now(s),l.start)),place:l.place,title:l.name+' · '+(notice?.title||(now(s)>l.start+10?'现在赶去还来得及听一段':'上课时间到了')),text:notice?.text||('第 '+Math.ceil(s.day/7)+' 周 '+weekLabels[(s.day-1)%7]+' · '+l.time+'。今天的小目标：'+c.work+'。'),bubble:'带着自己的课表去上课。',emoji:majorOf(s).icon,choices};
 }
 const safeAcademic=new Set(['base-1','wrong-class','attendance-link']);
 function protectedScene(scene,s){return scene?.kind==='三餐'||scene?.romanceScene||!!(s.medical||s.evolution?.care||s.wellness?.mouse||s.campusRevision?.proposal||s.journeys?.pending)||/课设截止|就诊|感冒/.test(scene?.kind||'')||/^term-|^well-|^ill-/.test(scene?.id||'');}
@@ -151,14 +212,21 @@ function physical(s,c,late,mini){
  if(roll<(count===0?0:count===1?.3:.5)){mods.health=(mods.health||0)-12;mods.energy-=6;mods.mood=(mods.mood||0)-4;mods.charm=0;flags.injury=1;result+=' 练习中不慎拉伤，今天先休息。';}
  d.base.sport=true;return{stats:B.apply(s.stats,mods),flags,result,miniGames:s.miniGames?{...s.miniGames,pending:null,daily:d,awards}:s.miniGames};
 }
-function finishCourse(s,mode,runnerScore=null,mini=null){
- const p=s.school.pending,l=p.lesson,c=courseOf(s,l.courseId),checked=B.rng(hash(s.seed+':school-rollcall:'+l.day+':'+l.courseId))()<c.attendanceRate,late=mode==='attend'&&(runnerScore===0||runnerScore!==1&&now(s)>l.start+10),missed=mode==='skip'&&checked;
- if(mode==='attend'&&now(s)>=l.end)throw Error('本节已经结束，请先记录未到课再安排补学');if(mode==='leave'&&!canLeave(s))throw Error('当前没有请假事由');const r={...s.school.records[c.id]},status=mode==='leave'?'excused':mode==='skip'?(checked?'missed':'unrecorded'):late?'late':'attended';
- const attending=mode==='attend',sport=attending&&c.category==='pe',signed=attending&&(!late||!checked),study=attending&&!sport?(late?1:c.category==='major'?4:c.category==='common'?3:2):0,project=attending&&!sport?(late?1:c.category==='major'?4:c.category==='common'?2:1):0,exercise=sport?physical(s,c,late,mini):null,flags=attending?{schoolAttend:1,...(exercise?.flags||{}),...(c.category==='elective'&&['photo','film','music','calligraphy'].includes(c.kind)?{art:1}:{})}:{},stats=exercise?.stats||B.apply(s.stats,attending?{study,energy:-2,...(c.category==='elective'&&s.stats.mood<80?{mood:1}:{})}:{});
+function finishCourse(s,mode,runnerScore=null,mini=null,autoPlan=null){
+ const p=s.school.pending,l=p.lesson,c=courseOf(s,l.courseId),checked=isChecked(s,l,c),invite=mode==='invite',skipped=mode==='skip'||invite;
+ const late=mode==='attend'&&(runnerScore===0||runnerScore!==1&&now(s)>l.start+10),missed=skipped&&checked;
+ if(mode==='attend'&&now(s)>=l.end)throw Error('本节已经结束，请先记录未到课再安排补学');if(mode==='leave'&&!canLeave(s))throw Error('当前没有请假事由');const r={...s.school.records[c.id]},status=mode==='leave'?'excused':skipped?(checked?'missed':'unrecorded'):late?'late':'attended';
+ const attending=mode==='attend',sport=attending&&c.category==='pe',signed=attending&&(!late||!checked),quiz=attending&&!sport&&!late&&p.notice==='quiz';
+ const study=attending&&!sport?(late?1:c.category==='major'?4:c.category==='common'?3:2)+(quiz?2:0):0,project=attending&&!sport?(late?1:c.category==='major'?4:c.category==='common'?2:1):0;
+ const exercise=sport?physical(s,c,late,mini):null,flags=attending?{schoolAttend:1,...(exercise?.flags||{}),...(c.category==='elective'&&['photo','film','music','calligraphy'].includes(c.kind)?{art:1}:{})}:{};
+ const stats=exercise?.stats||B.apply(s.stats,attending?{study,energy:-2,...(c.category==='elective'&&s.stats.mood<80?{mood:1}:{})}:invite?{energy:-2,mood:4,social:2}:{});
  if(attending){if(late){r.late++;if(checked){r.missed++;r.risk++;r.score=Math.max(0,r.score-3);}}else{r.attended++;r.score=Math.min(100,r.score+1);}}else if(mode==='leave'){r.excused++;r.makeup++;}else{r.makeup++;if(missed){r.missed++;r.risk+=2;r.score=Math.max(0,r.score-8);}}
  const work=attending?{title:c.work,course:c.name,courseId:c.id,kind:c.kind,category:c.category,categoryLabel:c.categoryLabel,caption:late?'补听或补练后留下的一份简短记录。':sport?'热身、练习、放松，把自己的训练记下来。':'奶蛙在课堂上动手完成，留下今天的一小步。',day:s.day,seed:hash(s.seed+':work:'+l.id),late}:null;
  let result=attending?(exercise?.result||(late?'迟到后听完了剩余内容，完成了一份简短练习。':'奶蛙按时到课，认真完成了'+c.work+'。'))+(late?(checked?' 本节有签到，迟到错过了签到；可以之后补学并向老师说明。':' 本节未抽查签到，迟到仍如实记下。'):''):mode==='leave'?'已经向老师说明身体情况，本节记为请假，待恢复后补学。':checked?'本节老师抽查了出勤，点名未到，记一次缺勤。没有获得课堂收益。':'奶蛙没有到课；本节未抽查出勤，不记缺勤，也没有获得课堂收益。';
- const entry={day:s.day,step:-1,eventId:sport?'active-gym-'+l.id:l.id,schoolLessonId:l.id,index:attending?0:mode==='skip'?1:2,time:clock(Math.max(now(s),l.start+(runnerScore===0?15:0))),title:l.name+' · '+statuses[status],place:l.place,choice:attending?'到课并完成练习':mode==='skip'?'未到课':'身体不适请假',result,changes:Object.fromEntries(B.keys.filter(k=>stats[k]!==s.stats[k]).map(k=>[k,stats[k]-s.stats[k]])),flags,project,minutes:Math.max(0,l.end-Math.max(now(s),l.start+(runnerScore===0?15:0))),schoolCourse:c.id,courseId:c.id,category:c.category,courseKind:c.kind,schoolStatus:status,schoolChecked:checked,...(work?{schoolWork:work}:{}),...(runnerScore!==null?{miniGame:'mini-runner',miniScore:runnerScore}:mini?{miniGame:mini.key,miniScore:mini.value}:{})};
+ if(quiz)result+=' 随堂小测也交上了。';
+ if(invite)result='你和室友做完手作，把成品一起带回了宿舍。'+result;
+ if(autoPlan==='attend'&&skipped)result='原计划到课，赶到时已经下课了。'+result;
+ const entry={day:s.day,step:-1,eventId:sport?'active-gym-'+l.id:l.id,schoolLessonId:l.id,index:attending?0:skipped?1:2,time:clock(Math.max(now(s),l.start+(runnerScore===0?15:0))),title:l.name+' · '+statuses[status],place:l.place,choice:attending?'到课并完成练习':invite?'和室友参加手作体验':skipped?'未到课':'身体不适请假',result,changes:Object.fromEntries(B.keys.filter(k=>stats[k]!==s.stats[k]).map(k=>[k,stats[k]-s.stats[k]])),flags,project,minutes:Math.max(0,l.end-Math.max(now(s),l.start+(runnerScore===0?15:0))),schoolCourse:c.id,courseId:c.id,category:c.category,courseKind:c.kind,schoolStatus:status,schoolChecked:checked,...(work?{schoolWork:work}:{}),...(runnerScore!==null?{miniGame:'mini-runner',miniScore:runnerScore}:mini?{miniGame:mini.key,miniScore:mini.value}:{}),...(autoPlan?{schoolAutoPlan:autoPlan}:{})};
  const totals={...s.flags};for(const [key,value]of Object.entries(flags))totals[key]=(totals[key]||0)+value;
  const n={...s,stats,phase:'outcome',outcome:entry,eventId:l.id,log:[...s.log,entry],flags:totals,term:{...s.term,progress:s.term.progress+project},rhythm:{...s.rhythm,clock:Math.max(now(s),l.end)},...(exercise?.miniGames?{miniGames:exercise.miniGames}:{}),school:{...s.school,pending:null,returnTo:p.previous,attendance:{...s.school.attendance,[l.id]:{status,checked,signed,day:s.day,courseId:c.id}},records:{...s.school.records,[c.id]:r},lastWork:work||s.school.lastWork}};
  return B.settleNutrition(s,{...n,failed:failure(n)},0,false);
@@ -182,13 +250,13 @@ function returning(s){return !!(s.miniGames?.returnOutcome||s.campusLife?.pendin
 function underlyingNext(s){let n=B.next(s),guard=0;while(returning(s)&&n.phase==='outcome'&&!n.failed&&n.log.length===s.log.length&&guard++<8){s=n;n=B.next(s);}return n;}
 function advance(s){
  if(s.school.pending||s.miniGames?.pending)throw Error('先完成眼前的课程或互动');if(s.failed)return B.next(s);if(s.school.returnTo){const p=s.school.returnTo;s={...s,...p,school:{...s.school,returnTo:null}};if(s.phase==='choice')return s;}
- if(s.phase!=='outcome')return B.next(s);if(s.failed)return B.next(s);const due=unresolved(s);if(due&&due.start<=now(s))return openCourse(s,due);
+ if(s.phase!=='outcome')return B.next(s);if(s.failed)return B.next(s);const due=unresolved(s);if(due&&due.start<=now(s))return openScheduledCourse(s,due);
  let n=underlyingNext(s);
  if(due?.start===1110&&n.day===s.day&&n.phase==='choice'&&n.eventId==='meal-dinner'){
   const at=Math.max(now(s),Math.min(now(n),1080));n=B.settleNutrition(s,{...n,school:{...n.school,mealAt:{eventId:n.eventId,at}},rhythm:{...n.rhythm,clock:at}});
  }
- if(due&&n.day===s.day&&(n.phase==='dayEnd'||due.start<=Math.max(now(s),now(n))))return openCourse(s,due);
- n=monotonic(s,n);let guard=0;while(n.phase==='choice'&&safeAcademic.has(n.eventId)&&!protectedScene(B.getScene(n),n)&&guard++<4){const scene=B.getScene(n);const stub={day:n.day,step:n.step,eventId:n.eventId,time:clock(now(n)),title:scene.title,choice:'专业课表接管本节课堂',result:'',changes:{},flags:{},project:0};n=monotonic(n,B.next({...n,phase:'outcome',outcome:stub}));if(due&&n.day===s.day&&(n.phase==='dayEnd'||due.start<=now(n)))return openCourse(s,due);}
+ if(due&&n.day===s.day&&(n.phase==='dayEnd'||due.start<=Math.max(now(s),now(n))))return openScheduledCourse(s,due);
+ n=monotonic(s,n);let guard=0;while(n.phase==='choice'&&safeAcademic.has(n.eventId)&&!protectedScene(B.getScene(n),n)&&guard++<4){const scene=B.getScene(n);const stub={day:n.day,step:n.step,eventId:n.eventId,time:clock(now(n)),title:scene.title,choice:'专业课表接管本节课堂',result:'',changes:{},flags:{},project:0};n=monotonic(n,B.next({...n,phase:'outcome',outcome:stub}));if(due&&n.day===s.day&&(n.phase==='dayEnd'||due.start<=now(n)))return openScheduledCourse(s,due);}
  return n;
 }
 function next(s){return s.school?withAction(s,advance(s),'next'):B.next(s);}
@@ -204,7 +272,7 @@ function startActivity(s,key){
  if(!s.school)return B.startActivity(s,key);
  // Booking tomorrow's care does not need a gap in today's timetable.
  if(s.phase==='dayEnd'&&['clinic','vaccine','psych'].includes(key))return withAction(s,B.startActivity(s,key),'start',[key]);
- if(!availableActivities(s).some(a=>a.id===key&&!a.disabledReason))throw Error('这段空闲不足，先看看下一节课');
+ if(!availableActivities(s).some(a=>a.id===B.campusActivityKey(key)&&!a.disabledReason))throw Error('这段空闲不足，先看看下一节课');
  let n;
  if(key.startsWith('school-makeup:'))n=makeup(s,key.slice(14));
  else if(key==='mini-runner')n=startRunner(openCourse(s,unresolved(s),true));
@@ -216,13 +284,16 @@ function completeMini(s,value){
  return withAction(s,monotonic(s,B.completeMini(s,value),true),'mini',[value]);
 }
 function cancelMini(s){if(!s.school)return B.cancelMini(s);if(s.school.pending?.peMini){if(!s.miniGames?.pending)throw Error('没有待完成的互动');return withAction(s,{...s,miniGames:{...s.miniGames,pending:null},school:{...s.school,pending:{...s.school.pending,peMini:null}}},'cancel');}if(s.school.pending?.runner){if(!s.miniGames?.pending)throw Error('没有待完成的互动');return withAction(s,{...s,miniGames:{...s.miniGames,pending:null},school:{...s.school,pending:{...s.school.pending,runner:false}}},'cancel');}return withAction(s,B.cancelMini(s),'cancel');}
-function continueDay(s){if(!s.school)return B.continueDay(s);let n=B.continueDay(s);const q=s.school.queuedSelection;if(q&&n.day>=q.effectiveDay){const selection=canonical(q);n={...n,school:{...n.school,selection,queuedSelection:null,enrollments:[...n.school.enrollments,{effectiveDay:q.effectiveDay,selection}],records:withRecords(n.school.records,selectedCourses(selection))}};}return withAction(s,n,'day');}
+function continueDay(s){if(!s.school)return B.continueDay(s);let n=B.continueDay(s);const q=s.school.queuedSelection;if(q&&n.day>=q.effectiveDay){const selection=canonical(q);n={...n,school:{...n.school,selection,queuedSelection:null,enrollments:[...n.school.enrollments,{effectiveDay:q.effectiveDay,selection}],records:withRecords(n.school.records,selectedCourses(selection))}};}
+ if(n.day!==s.day&&n.school.attendancePlan){const {attendancePlan,...school}=n.school;n={...n,school};}
+ return withAction(s,n,'day');
+}
 function retire(s){return s.school?withAction(s,B.retire(s),'retire'):B.retire(s);}
 const upgrades=Object.keys(B).filter(k=>k.startsWith('enable')&&typeof B[k]==='function'),wrapped={};for(const key of upgrades)wrapped[key]=(s,...args)=>{const n=B[key](s,...args);return s.school&&n!==s?withAction(s,n,'upgrade',[key,...args]):n;};
 function replayAction(engine,s,a){
- const match=/^school-(choose|next|start|mini|cancel|day|retire|upgrade|select):(.+)$/.exec(a);if(!match)throw Error('Invalid action');
+ const match=/^school-(choose|next|start|mini|cancel|day|retire|upgrade|select|plan|remove-plan):(.+)$/.exec(a);if(!match)throw Error('Invalid action');
  const args=JSON.parse(decodeURIComponent(match[2]));if(!Array.isArray(args))throw Error('Invalid arguments');
- const method={choose:'choose',next:'next',start:'startActivity',mini:'completeMini',cancel:'cancelMini',day:'continueDay',retire:'retire',select:'selectCourses'}[match[1]];
+ const method={choose:'choose',next:'next',start:'startActivity',mini:'completeMini',cancel:'cancelMini',day:'continueDay',retire:'retire',select:'selectCourses',plan:'planCourseAttendance','remove-plan':'enableAttendancePlanRemoval'}[match[1]];
  if(method)return engine[method](s,...args);if(!upgrades.includes(args[0]))throw Error('Invalid upgrade');return engine[args[0]](s,...args.slice(1));
 }
 function restore(raw){
@@ -231,12 +302,13 @@ function restore(raw){
  const base=raw.school.base?.school?V.restore(raw.school.base):B.restore(raw.school.base);if(!base)return null;const boundary=base.actions.length,marker=raw.actions[boundary];
  if(typeof marker!=='string'||!/^curriculum-v[23]:/.test(marker)||JSON.stringify(raw.actions.slice(0,boundary))!==JSON.stringify(base.actions))return null;
  const [majorId,selection]=JSON.parse(decodeURIComponent(marker.slice(14)));if(base.school&&base.school.majorId!==majorId)return null;
- let engine=marker.startsWith('curriculum-v2:')?V2:{...wrapped,choose,next,startActivity,completeMini,cancelMini,continueDay,retire,selectCourses},s=engine===V2?(base.school?V2.selectCourses(base,selection):V2.enableSchool(base,majorId,selection)):initialize(base,majorId,selection);
- for(const a of raw.actions.slice(boundary+1)){if(a==='timetable-v3:[]'){if(s.school.revision!==2)return null;s=upgradeTimetable(s);if(s.school.revision!==3)return null;engine={...wrapped,choose,next,startActivity,completeMini,cancelMini,continueDay,retire,selectCourses};}else s=replayAction(engine,s,a);}
+ const current={...wrapped,choose,next,startActivity,completeMini,cancelMini,continueDay,retire,selectCourses,planCourseAttendance,enableAttendancePlanRemoval};
+ let engine=marker.startsWith('curriculum-v2:')?V2:current,s=engine===V2?(base.school?V2.selectCourses(base,selection):V2.enableSchool(base,majorId,selection)):initialize(base,majorId,selection);
+ for(const a of raw.actions.slice(boundary+1)){if(a==='timetable-v3:[]'){if(s.school.revision!==2)return null;s=upgradeTimetable(s);if(s.school.revision!==3)return null;engine=current;}else s=replayAction(engine,s,a);}
  return JSON.stringify(s)===JSON.stringify(raw)?s:null;
  }catch{return null;}
 }
 const methods={getScene,choose,next,freeMinutes,availableActivities,startActivity,completeMini,cancelMini,continueDay,retire},dispatch={};for(const [key,fn]of Object.entries(methods))dispatch[key]=(s,...args)=>older(s)?older(s)[key](s,...args):fn(s,...args);
 for(const key of upgrades){const fn=wrapped[key];wrapped[key]=(s,...args)=>older(s)?older(s)[key](s,...args):fn(s,...args);}
-root.DormGame={...B,...wrapped,...dispatch,majors,courseCatalog,schoolPeriods,upgradeTimetable,create,enableSchool,schoolView,curriculumOptions,validateCourseSelection,selectCourses,restore,valid:s=>restore(s)!==null};if(!browser)module.exports=root.DormGame;
+root.DormGame={...B,...wrapped,...dispatch,majors,courseCatalog,schoolPeriods,upgradeTimetable,create,enableSchool,schoolView,curriculumOptions,validateCourseSelection,selectCourses,planCourseAttendance,enableAttendancePlanRemoval,restore,valid:s=>restore(s)!==null};if(!browser)module.exports=root.DormGame;
 })(typeof globalThis!=='undefined'?globalThis:this);

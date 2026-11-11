@@ -19,7 +19,7 @@ function enableUnlimitedMoney(s){
 
 const mutations=new Set([
  'choose','next','startActivity','completeMini','cancelMini','continueDay','retire',
- 'selectCourses','upgradeTimetable','startMajor','majorAct','cancelMajor','skipMajor',
+ 'selectCourses','planCourseAttendance','upgradeTimetable','startMajor','majorAct','cancelMajor','skipMajor',
  ...Object.keys(B).filter(key=>key.startsWith('enable')&&typeof B[key]==='function')
 ]);
 const wrapped={};

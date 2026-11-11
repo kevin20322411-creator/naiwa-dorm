@@ -4,12 +4,12 @@ const G=require('../dist/positive-endings.js'),B=require('../dist/wallet.js');
 const Expansion=require('../dist/campus-expansion.js'),LifeTests=require('./wellness.cjs');
 const clone=value=>JSON.parse(JSON.stringify(value));
 const ids=s=>G.availablePositiveEndings(s).map(item=>item.id);
-let cachedResearch;
+const researchRuns=new Map();
 
 // Real actions reach this state. The school/wallet/practice upgrades are added
 // at the day boundary, so the test also exercises an upgraded historical run.
-function realResearch(){
- if(cachedResearch)return clone(cachedResearch);
+function realResearch(legacy=false){
+ if(researchRuns.has(legacy))return clone(researchRuns.get(legacy));
  const proxy={...Expansion,
   create:(seed,traits,name)=>Expansion.create(seed,['brain','budget','athletic'],name),
   next(s){
@@ -17,30 +17,33 @@ function realResearch(){
    let key=['vaccine','psych','clinic'].find(allowed);
    if(!key&&s.stats.study>=75&&!s.campusLife.joined&&allowed('lab-apply'))key='lab-apply';
    if(!key&&s.log.filter(row=>row.campusActivity==='lab-work').length<18&&s.stats.energy>=35&&allowed('lab-work'))key='lab-work';
-   return key?Expansion.startActivity(s,key):Expansion.next(s);
+   return key?Expansion.startActivity(s,key==='lab-work'&&!legacy?Expansion.researchVisitKey:key):Expansion.next(s);
   },
   choose(s,index){
    if(s.eventId==='campus83-lab-work')index=s.log.filter(row=>row.campusActivity==='lab-work').length%3;
    return Expansion.choose(s,index);
   }
  };
- let s=LifeTests.run(proxy,1,14).s;
- assert.equal(s.phase,'dayEnd');assert.equal(s.day,14);assert(ids(s).includes('ending-research'));
+ const endDay=legacy?14:20;
+ let s=LifeTests.run(proxy,1,endDay).s;
+ assert.equal(s.phase,'dayEnd');assert.equal(s.day,endDay);
+ assert(G.availablePositiveEndings(s,legacy?1:2).some(e=>e.id==='ending-research'));
  assert(G.valid(s),'真实科研路线可按历史规则重放');
  s=G.enableCampusJobs(s);s=G.enableUnlimitedMoney(s);s=G.enableSchool(s,'cs');s=G.enableMajorLife(s);s=G.enableTalentEffects(s);
  assert(s.wallet&&s.school&&s.majorLife,'升级后包含完整钱包、课表与专业实践层');
  assert(G.valid(s),'升级后的科研日终仍可精确回放');
- cachedResearch=clone(s);return clone(cachedResearch);
+ researchRuns.set(legacy,clone(s));return clone(s);
 }
 
 function allDirections(){
  const attendance=Array.from({length:20},(_,i)=>({day:Math.floor(i/2)+1,eventId:'school-'+i,schoolLessonId:'lesson-'+i,schoolCourse:'cs101',schoolStatus:i%2?'late':'attended'}));
- const lab=Array.from({length:12},(_,i)=>({day:Math.floor(i/2)+12,eventId:'campus83-lab-work',campusActivity:'lab-work',index:i%3}));
+ const join={day:16,eventId:'campus83-lab-apply',campusActivity:'lab-apply',index:0};
+ const lab=Array.from({length:12},(_,i)=>({day:Math.floor(i/2)+17,eventId:'campus83-lab-work',campusActivity:'lab-work',index:i%3,researchGain:9}));
  const confession={day:18,eventId:'love-confession',index:0,intimacyChange:0};
  const promises=Array.from({length:5},(_,i)=>({day:19+i,eventId:'love-bond-keep',index:0,intimacyChange:0}));
  return{day:30,phase:'dayEnd',failed:null,name:'边界样本',seed:1,stats:{energy:90,study:95,health:80,mood:80,charm:70,money:200,social:70},
   term:{passed:3,missed:0},campusLife:{joined:true},romance:{connected:true,dating:true,intimacy:95,earnedDay:18},
-  relationships:{known:['activity','taste'],strain:0,kept:5},log:[...attendance,...lab,confession,...promises].sort((a,b)=>a.day-b.day)};
+  relationships:{known:['activity','taste'],strain:0,kept:5},log:[...attendance,join,...lab,confession,...promises].sort((a,b)=>a.day-b.day)};
 }
 
 function checks(){
@@ -70,9 +73,12 @@ function checks(){
  const duplicate=all.log.map(row=>row.schoolCourse?{...row,schoolLessonId:'same-lesson',day:1}:row);
  assert(!ids({...all,log:duplicate}).includes('ending-graduation'),'重复课堂条目不会重复计课');
  assert(!ids({...all,log:all.log.map(row=>row.schoolCourse?{...row,schoolStatus:'absent'}:row)}).includes('ending-graduation'));
- for(const extra of [{day:13},{campusLife:{joined:false}},{stats:{...all.stats,study:89}},{stats:{...all.stats,health:49}}])assert(!ids({...all,...extra}).includes('ending-research'));
- assert(!ids({...all,log:all.log.map(row=>row.campusActivity==='lab-work'?{...row,day:12}:row)}).includes('ending-research'),'同日刷实验室不算跨6天');
- assert(!ids({...all,log:all.log.map(row=>row.campusActivity==='lab-work'?{...row,index:0}:row)}).includes('ending-research'),'只读文献不能替代实验与组会');
+ for(const extra of [{day:29},{campusLife:{joined:false}}])assert(!ids({...all,...extra}).includes('ending-research'));
+ assert(ids({...all,stats:{...all.stats,study:80,health:45}}).includes('ending-research'),'结局直接检查科研经历和进度');
+ const labs=all.log.filter(row=>row.campusActivity==='lab-work'),changeLabs=fn=>all.log.map(row=>labs.includes(row)?fn(row):row).filter(Boolean);
+ assert(!ids({...all,log:changeLabs(row=>row===labs[0]?null:row)}).includes('ending-research'),'进度满但只做过11次');
+ assert(!ids({...all,log:changeLabs(row=>({...row,researchGain:4}))}).includes('ending-research'),'次数够但进度不足');
+ assert(ids({...all,log:changeLabs(row=>({...row,index:0}))}).includes('ending-research'),'实验室活动种类由玩家自行选择');
  assert(!ids({...all,log:all.log.map(row=>row.campusActivity==='lab-work'?{...row,index:3}:row)}).includes('ending-research'),'取消实验室活动不计经历');
  for(const extra of [{romance:{...all.romance,dating:false}},{romance:{...all.romance,connected:false}},{romance:{...all.romance,intimacy:89}},{romance:{...all.romance,earnedDay:24}},{relationships:{...all.relationships,strain:1}},{relationships:{...all.relationships,known:['activity']}},{stats:{...all.stats,charm:59}},{stats:{...all.stats,mood:64}}])assert(!ids({...all,...extra}).includes('ending-together'));
  assert(ids(all).includes('ending-together'),'满亲密度时零增益的认真履约依然计数');
@@ -82,7 +88,29 @@ function checks(){
 
  const base=realResearch(),before=clone(base),final=G.finishPositive(base,'ending-research');
  assert.deepEqual(base,before,'结束时不修改日终输入');assert(G.valid(final));assert.deepEqual(G.restore(clone(final)),final);
- assert.equal(G.ending(final).name,'科研成功');assert.equal(final.phase,'ending');assert.equal(final.failed,null);
+ assert.equal(G.ending(final).name,'顶刊大佬');assert.equal(final.phase,'ending');assert.equal(final.failed,null);
+ const historical=realResearch(true),oldFinal={...historical,phase:'ending',failed:null,finalEnding:'ending-research',positiveEnding:{revision:1,id:'ending-research',base:clone(historical)}};
+ assert.deepEqual(G.restore(clone(oldFinal)),oldFinal);
+ assert.equal(G.ending(oldFinal).name,'科研成功');
+ assert.equal(G.researchStatus(historical).visits,18);
+ assert(!G.researchStatus(historical).ready,'旧活动可折算进度，入组天数仍从入组当天计算');
+ const {until}=require('./admission.cjs');
+ let player=G.choose(G.createCampus(72,['brain','regularSleep','slowWarm'],'科研测试','admitted'),0);
+ assert.equal(G.researchStatus(player),null);
+ player=G.next(G.choose(G.startActivity(player,'lab-apply'),0));
+ player=until(player,s=>s.phase==='outcome'&&G.availableActivities(s).some(a=>a.id==='lab-work'&&!a.disabledReason));
+ const visit=G.startActivity(player,'lab-work'),worked=G.choose(visit,0);
+ assert.deepEqual(G.researchStatus(G.choose(visit,3)),G.researchStatus(player),'取消不会记次数或进度');
+ assert.deepEqual(G.restore(clone(worked)),worked);
+ assert.equal(G.researchStatus(worked).progress,worked.outcome.researchGain);
+ const gain=(study,mood,seed=visit.seed)=>G.choose({...visit,seed,stats:{...visit.stats,study,mood}},0).outcome.researchGain;
+ const low=gain(0,0);
+ assert.equal(gain(100,0),low+3);
+ assert.equal(gain(0,100),low+3);
+ assert.equal(gain(100,100),low+6);
+ assert(new Set(Array.from({length:16},(_,seed)=>gain(50,50,seed))).size>1);
+ const corrupt=clone(worked);corrupt.log.at(-1).researchGain++;
+ assert.equal(G.restore(corrupt),null);
  assert.equal(final.actions.length,base.actions.length);assert.deepEqual(final.wallet,base.wallet,'新结局不写入原钱包动作时间线');
  const proof=G.positiveEndingReport(final);assert(proof.facts.some(f=>f.includes('实验室活动 18 次')));assert.equal(proof.player,base.name);
  const reportBefore=clone(final);G.positiveEndingReport(final);G.availablePositiveEndings(final);G.achievements(final);assert.deepEqual(final,reportBefore);
@@ -95,7 +123,7 @@ function checks(){
  for(const mutate of [
   x=>{x.finalEnding='ending-together';},x=>{x.positiveEnding.id='ending-together';},x=>{x.phase='dayEnd';},x=>{x.failed='fail-health';},
   x=>{x.stats.study--;},x=>{x.positiveEnding.base.stats.study++;},x=>{x.positiveEnding.base.log.pop();},
-  x=>{x.positiveEnding.revision=2;},x=>{delete x.positiveEnding.base;},x=>{x.positiveEnding.base=clone(final);},x=>{x.unexpected=true;}
+  x=>{x.positiveEnding.revision=3;},x=>{delete x.positiveEnding.base;},x=>{x.positiveEnding.base=clone(final);},x=>{x.unexpected=true;}
  ]){const bad=clone(final);mutate(bad);assert.equal(G.restore(bad),null,'篡改外层或基础快照必须被拒绝');}
  assert.equal(G.positiveEndingReport({...final,finalEnding:'ending-together'}),null);
  const ctx={DormGame:B};ctx.globalThis=ctx;vm.runInNewContext(fs.readFileSync(require.resolve('../dist/positive-endings.js'),'utf8'),ctx);

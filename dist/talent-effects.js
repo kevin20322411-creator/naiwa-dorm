@@ -53,7 +53,7 @@ function effects(s,n){
  }
  return{...n,stats,log,outcome,...(project?{term:{...n.term,progress:n.term.progress+project}}:{})};
 }
-const mutators=[...new Set(['choose','next','startActivity','completeMini','cancelMini','continueDay','retire','selectCourses','upgradeTimetable','startMajor','majorAct','cancelMajor','skipMajor',...Object.keys(B).filter(k=>k.startsWith('enable')&&typeof B[k]==='function')])],wrapped={};
+const mutators=[...new Set(['choose','next','startActivity','completeMini','cancelMini','continueDay','retire','selectCourses','planCourseAttendance','upgradeTimetable','startMajor','majorAct','cancelMajor','skipMajor',...Object.keys(B).filter(k=>k.startsWith('enable')&&typeof B[k]==='function')])],wrapped={};
 for(const key of mutators)wrapped[key]=(s,...args)=>{
  if(!s.talentEffects)return B[key](s,...args);
  const n=B[key](s,...args);if(n===s)return s;

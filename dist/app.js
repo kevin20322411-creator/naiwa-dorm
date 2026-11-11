@@ -1,12 +1,16 @@
 (()=>{
 'use strict';
 const G=window.DormGame,E=window.DormExpressions,W=window.DormWorld,M=window.DormCampus,C=window.DormCanteen,S=window.DormSchoolUI,U=window.DormMajorUI,A=window.DormAchievementBook,F=window.DormEndingBook,app=document.querySelector('#app'),saveKey='naiwa-dorm-run-v2',bookKey='naiwa-dorm-endings-v1',evidenceKey='naiwa-dorm-achievement-evidence-v1',backgroundKey='naiwa-dorm-backgrounds-v1',finalesKey='naiwa-dorm-finales-v1';
-const RELEASE={version:'9.8',date:'2026.11.10',items:['早餐分档菜单','新增早餐套餐与配图','调整校外餐食价格','调整富二代开局生活费']};
+const RELEASE={version:'9.9',date:'2026.11.11',items:['新增科研进度','更新科研结局','更新男明星通讯录']};
 const read=(k,fallback)=>{try{return JSON.parse(localStorage.getItem(k))??fallback;}catch{return fallback;}};
 const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch{return false;}};
 const esc=s=>String(s).replaceAll('饭钱','生活费').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const narrative=s=>String(s).replaceAll('饭钱','生活费').replaceAll('奶娃','奶蛙').replace(/今天她有些疲惫，想把节奏放慢一点。|今天她忙着赶任务，想先把手头的事做好。|今天她有件开心的小事，想找人分享。/g,'').replaceAll('这次，是奶蛙先发来的消息。','奶蛙给奶粉发了条消息。').replace(/不用等(?:奶粉|你的宝宝)来找你。可以分享一件小事，也可以认真问问对方今天怎么样。/g,'聊点什么呢？').replace(/(?:奶粉|你的宝宝)等了一会儿，最后把聊天窗口收了起来。/g,'奶粉等了一会儿，以为你正在忙，便先收起了聊天窗口。').replace(/最迟第 \d+ 天结束前，需要去医院处理并打疫苗；逾期会触发“奶蛙长眠”。/g,'需要及时去医院处理咬伤并接种疫苗。').replaceAll('奶粉',state?.romance?.dating?'你的宝宝':'奶粉').replaceAll('一只粉色的奶蛙','奶粉').replaceAll('粉色的奶蛙','奶粉').replaceAll('旁边有人喊了一声“奶粉”。','').trim();
-let state=G.restore(read(saveKey,null)),renderEpoch=0,campusPlace=null,mealStall='today';
+const namedFanCopy=(text,name)=>String(text).replace(/奶粉|你的宝宝/g,()=>name);
+const narrative=(s,name)=>{
+ const text=String(s).replaceAll('饭钱','生活费').replaceAll('奶娃','奶蛙').replace(/今天她有些疲惫，想把节奏放慢一点。|今天她忙着赶任务，想先把手头的事做好。|今天她有件开心的小事，想找人分享。/g,'').replaceAll('这次，是奶蛙先发来的消息。','奶蛙给奶粉发了条消息。').replace(/不用等(?:奶粉|你的宝宝)来找你。可以分享一件小事，也可以认真问问对方今天怎么样。/g,'聊点什么呢？').replace(/(?:奶粉|你的宝宝)等了一会儿，最后把聊天窗口收了起来。/g,'奶粉等了一会儿，以为你正在忙，便先收起了聊天窗口。').replace(/最迟第 \d+ 天结束前，需要去医院处理并打疫苗；逾期会触发“奶蛙长眠”。/g,'需要及时去医院处理咬伤并接种疫苗。').replaceAll('一只粉色的奶蛙','奶粉').replaceAll('粉色的奶蛙','奶粉').replaceAll('旁边有人喊了一声“奶粉”。','').trim();
+ return typeof name==='string'&&name?namedFanCopy(text,name):text.replaceAll('奶粉',state?.romance?.dating?'你的宝宝':'奶粉');
+};
+let state=G.restore(read(saveKey,null)),renderEpoch=0,campusPlace=null,mealStall='today',fanBookOpen=false;
 if(state&&G.upgradeTimetable){const upgraded=G.upgradeTimetable(state);if(upgraded!==state){state=upgraded;write(saveKey,state);}}
 if(state&&G.enableMajorLife){const upgraded=G.enableMajorLife(state);if(upgraded!==state){state=upgraded;write(saveKey,state);}}
 if(state&&G.enableTalentEffects){const upgraded=G.enableTalentEffects(state);if(upgraded!==state){state=upgraded;write(saveKey,state);}}
@@ -163,17 +167,57 @@ function traitsView(){
  document.querySelector('#player-name').oninput=e=>{if(current())draftName=e.target.value;};
  document.querySelector('#back-home').onclick=()=>{if(current()){home();goTop();}};
  document.querySelector('#reroll').onclick=()=>{if(!current()||talentRefreshes<=0)return;draftName=document.querySelector('#player-name').value;talentRefreshes--;draftBatchSeed=(draftBatchSeed+7391)>>>0;offered=draftSharedBackground&&!draftSharedIdentity?G.newDraft(draftBatchSeed,selected,offered):G.talentDraft(draftBatchSeed,selected,offered);traitsView();};
- document.querySelector('#enroll').onclick=()=>{if(!current()||selected.length!==3||(!draftIdentity&&!draftSharedBackground))return;if(!courseValidation(draftMajor,draftSelection).valid){toast('请先调整冲突的选课。');return;}state=draftIdentity?G.createCampus(draftSeed,selected,draftName,draftIdentity,[],draftMajor,copyCourseSelection(draftSelection)):G.create(draftSeed,selected,draftName,[],draftBackground,draftMajor,copyCourseSelection(draftSelection));if(draftSharedBackground)sharedStartUsed=true;persist();gameView();goTop();};
+ document.querySelector('#enroll').onclick=()=>{if(!current()||selected.length!==3||(!draftIdentity&&!draftSharedBackground))return;if(!courseValidation(draftMajor,draftSelection).valid){toast('请先调整冲突的选课。');return;}fanBookOpen=false;state=draftIdentity?G.createCampus(draftSeed,selected,draftName,draftIdentity,[],draftMajor,copyCourseSelection(draftSelection)):G.create(draftSeed,selected,draftName,[],draftBackground,draftMajor,copyCourseSelection(draftSelection));if(draftSharedBackground)sharedStartUsed=true;persist();gameView();goTop();};
 }
 
+function fanName(id=state?.admission?.partnerId){
+ const contact=state?.admission?.contacts.find(c=>c.id===id);
+ return contact&&contact.id!=='campus-naifen'?G.fanIdentity(contact).name:'';
+}
+function sceneFanName(scene){
+ if(state.phase==='outcome')return state.outcome?.fanContactId?fanName(state.outcome.fanContactId):'';
+ return G.isFanInteraction(scene)&&state.romance.connected?fanName():'';
+}
+const partnerName=()=>fanName()||(state?.romance?.dating?'你的宝宝':'奶粉');
 function fanHTML(){
- if(state.admission?.id!=='celebrity'||!G.canManageFans(state))return '';
- const all=state.admission.contacts,offered=all.filter(c=>c.status==='offered'&&c.day===state.day),known=all.filter(c=>c.status==='known');
- return (offered.length?'<section class="fan-inbox"><h2>新的搭讪 <small>'+offered.length+'</small></h2>'+offered.map(c=>'<article class="fan-row"><img class="naiwa-pink" src="'+asset('frog-wave.png')+'" alt="奶粉"><strong>'+esc(c.name)+'</strong><div><button class="text-btn" data-fan-reply="'+c.id+'|yes">交换联系方式</button><button class="text-btn" data-fan-reply="'+c.id+'|no">婉拒</button></div></article>').join('')+'</section>':'')+(known.length?'<details class="fan-contacts"><summary>认识的同学 · '+known.length+'</summary>'+known.map(c=>'<div class="fan-row"><strong>'+esc(c.name)+'</strong>'+(c.id===state.admission.partnerId&&c.romance.connected?'<span>正在联系</span>':'<button class="text-btn" data-fan-focus="'+c.id+'" '+(state.romance.dating||!c.romance.connected?'disabled':'')+'>'+(c.romance.connected?'继续了解':'已断联')+'</button>')+'</div>').join('')+'</details>':'');
+ if(state.admission?.id!=='celebrity')return '';
+ const {contacts,partnerId}=state.admission,canManage=G.canManageFans(state);
+ const offered=contacts.filter(c=>c.status==='offered'&&c.day===state.day),known=contacts.filter(c=>c.status==='known');
+ if(!offered.length&&!known.length)return '';
+ const person=({name,place})=>{
+  return '<img class="naiwa-pink" src="'+asset('frog-wave.png')+'" alt=""><div class="fan-person"><strong>'+esc(name)+'</strong>'+(place?'<small>'+esc(place)+'</small>':'')+'</div>';
+ };
+ const invitations=offered.map(c=>{
+  const identity=G.fanIdentity(c),name=esc(identity.name);
+  const actions=canManage?`<div class="fan-actions"><button class="text-btn" data-fan-reply="${c.id}|yes" aria-label="添加 ${name}">添加</button><button class="text-btn" data-fan-reply="${c.id}|no" aria-label="婉拒 ${name}">婉拒</button></div>`:'<span>待回应</span>';
+  return '<li class="fan-row">'+person(identity)+actions+'</li>';
+ });
+ const entries=known.map(c=>{
+  const identity=G.fanIdentity(c);
+  const active=c.id===partnerId,romance=active?state.romance:c.romance;
+  const status=!romance.connected?'已断联':active?(romance.dating?'恋人':'当前互动'):'亲密度 '+romance.intimacy;
+  const action=romance.connected&&!active&&canManage&&!state.romance.dating?'<button class="text-btn" data-fan-focus="'+c.id+'" aria-label="切换到 '+esc(identity.name)+'">切换</button>':'';
+  return '<li class="fan-row'+(active&&romance.connected?' is-active':'')+'">'+person(identity)+'<span>'+status+'</span>'+action+'</li>';
+ });
+ const count=[known.length+' 位联系人',...(offered.length?[offered.length+' 条新邀请']:[])].join(' · ');
+ return '<details class="fan-contacts" id="fan-book"'+(fanBookOpen?' open':'')+'><summary><strong>通讯录</strong><span>'+count+'</span></summary><div class="fan-book-content">'+(invitations.length?'<section><h2>新的邀请</h2><ul>'+invitations.join('')+'</ul></section>':'')+(entries.length?'<section><h2>联系人</h2><ul>'+entries.join('')+'</ul></section>':'')+'</div></details>';
 }
 function bindFans(current){
- document.querySelectorAll('[data-fan-reply]').forEach(b=>b.onclick=()=>{if(!current())return;const [id,response]=b.dataset.fanReply.split('|');try{state=G.respondFan(state,id,response==='yes');persist();gameView();toast(response==='yes'?'已交换联系方式':'已礼貌婉拒');}catch(e){toast(e.message);}});
- document.querySelectorAll('[data-fan-focus]').forEach(b=>b.onclick=()=>{if(!current())return;try{state=G.focusContact(state,b.dataset.fanFocus);persist();gameView();toast('可以从聊天开始慢慢了解');}catch(e){toast(e.message);}});
+ const book=document.querySelector('#fan-book');
+ if(!book)return;
+ book.ontoggle=()=>{if(current())fanBookOpen=book.open;};
+ const update=(action,message)=>{
+  if(!current())return;
+  try{fanBookOpen=book.open??fanBookOpen;state=action();persist();gameView();toast(message());}
+  catch(error){toast(error.message);}
+ };
+ document.querySelectorAll('[data-fan-reply]').forEach(b=>b.onclick=()=>{
+  const [id,response]=b.dataset.fanReply.split('|'),accept=response==='yes';
+  update(()=>G.respondFan(state,id,accept),()=>accept?'已添加 '+fanName(id):'已婉拒');
+ });
+ document.querySelectorAll('[data-fan-focus]').forEach(b=>b.onclick=()=>{
+  update(()=>G.focusContact(state,b.dataset.fanFocus),()=> '当前互动 · '+partnerName());
+ });
 }
 function openingBuffHTML(){
  if(!state.openingBuff||state.day!==1||state.step!==0)return '';
@@ -181,6 +225,11 @@ function openingBuffHTML(){
  return '<div class="opening-buff" role="status"><span aria-hidden="true">✦</span> 开局加成 · '+esc(buff.name)+'<b>'+G.labels[buff.key]+' +'+state.openingBuff.amount+'</b></div>';
 }
 function mealRecoveryHTML(){const p=state.admission?.mealPerk;return p&&p.until>=state.day?'<div class="opening-buff"><span aria-hidden="true">✦</span> 餐后余裕<b>还能恢复 '+p.remaining+' 次</b></div>':'';}
+function researchHTML(){
+ const r=G.researchStatus(state);
+ if(!r)return '';
+ return '<section class="term-card" aria-label="科研进展"><div><strong>科研进度</strong><span>'+r.progress+'%</span></div><div class="term-meter" role="progressbar" aria-label="科研进度" aria-valuemin="0" aria-valuemax="'+r.target.progress+'" aria-valuenow="'+r.progress+'"><i style="width:'+r.progress+'%"></i></div><p><span>入组 '+r.days+' / '+r.target.days+' 天</span><span>实验室 '+r.visits+' / '+r.target.visits+' 次</span></p></section>';
+}
 function lotteryCreditHTML(){return state.lottery?.credit?'<div class="opening-buff">奖金余额 <b>¥'+state.lottery.credit+'</b></div>':'';}
 function taskHTML(){
  const t=G.task?.(state);if(!t)return '';
@@ -191,7 +240,8 @@ function romanceHTML(){
  const bond=G.relationshipStatus(state),known=G.preferenceNotes(state),promise=bond?.promise;
  const note=bond&&(known.length||promise)?'<div class="relationship-note">'+(known.length?'<p class="preference-diary">喜好手账</p><p class="relationship-known">'+known.map(esc).join(' · ')+'</p>':'')+(promise?'<p class="relationship-promise">约好：'+esc(promise.label)+'<span>第 '+promise.earliestDay+(promise.dueDay!==promise.earliestDay?'—'+promise.dueDay:'')+' 天</span></p>':'')+'</div>':'';
  const oldClassmate=state.admission?.id==='classmate'&&!state.admission.partnerId;
- return '<section class="romance-card" aria-label="与奶粉的亲密度"><div class="romance-person"><img class="naiwa-pink" src="'+asset('frog-wave.png')+'" alt="奶粉"><div><strong>'+(r.dating?'你的宝宝':state.admission?.contacts.find(c=>c.id===state.admission.partnerId)?.name||'奶粉')+'</strong><span>'+ (r.dating?'恋人':r.intimacy>=80?'心意渐明':oldClassmate?'老同学':'慢慢认识')+'</span></div><b>亲密度 '+r.intimacy+' <small>/ 100</small></b></div><div class="romance-meter" role="progressbar" aria-label="亲密度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+r.intimacy+'"><i style="width:'+r.intimacy+'%"></i></div>'+note+'</section>';
+ const name=esc(partnerName());
+ return '<section class="romance-card" aria-label="与'+name+'的亲密度"><div class="romance-person"><img class="naiwa-pink" src="'+asset('frog-wave.png')+'" alt=""><div><strong>'+name+'</strong><span>'+ (r.dating?'恋人':r.intimacy>=80?'心意渐明':oldClassmate?'老同学':'慢慢认识')+'</span></div><b>亲密度 '+r.intimacy+' <small>/ 100</small></b></div><div class="romance-meter" role="progressbar" aria-label="亲密度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+r.intimacy+'"><i style="width:'+r.intimacy+'%"></i></div>'+note+'</section>';
 }
 function recordAchievements(){
  if(!state)return [];
@@ -214,13 +264,16 @@ function saveAchievementBook(){
 }
 function recordFinale(){
  const proof=F.capture(state);if(!proof)return null;
- if(!finales[proof.id]||finales[proof.id].legacy){finales[proof.id]=proof;finaleSavePending=true;}
+ const saved=finales[proof.id];
+ if(!saved||saved.legacy||(proof.revision||1)>(saved.revision||1)){finales[proof.id]=proof;finaleSavePending=true;}
  if(finaleSavePending)finaleSavePending=!write(finalesKey,finales);
  return proof;
 }
 function collectAchievements(){const unlocked=recordAchievements();if(unlocked.length){showUnlocks(unlocked);if(!state.failed)speak('award');}}
-function choiceText(c){
- const text=state?.eventId==='love-active-ask-chat'?c.text.replace('只发一句“在吗”，收到回复又不接话','聊到一半刷起手机，迟迟没有回复'):c.text;const price=Math.max(0,-(c.mods.money||0));return text+(price&&!text.includes('¥')?' · ¥'+price:'')+(c.minutes?' · '+c.minutes+' 分钟':'');
+function choiceText(c,name){
+ const choice=state?.eventId==='love-active-ask-chat'?c.text.replace('只发一句“在吗”，收到回复又不接话','聊到一半刷起手机，迟迟没有回复'):c.text;
+ const text=name?namedFanCopy(choice,name):choice,price=Math.max(0,-(c.mods.money||0));
+ return text+(price&&!text.includes('¥')?' · ¥'+price:'')+(c.minutes?' · '+c.minutes+' 分钟':'');
 }
 function choiceNotice(c){
  if(c.disabledReason)return '<i class="danger">'+esc(c.disabledReason)+'</i>';
@@ -247,11 +300,14 @@ function sceneProgress(){
 function freeTimeHTML(){
  const list=G.availableActivities?.(state)||[];if(!list.length)return '';
  const buttons=partner=>list.filter(a=>Boolean(a.partner)===partner).map(a=>'<button class="activity-button" data-activity="'+a.id+'" '+(a.disabledReason?'disabled':'')+'>'+esc(a.label)+(a.disabledReason?'<small>'+esc(a.disabledReason)+'</small>':'')+'</button>').join('');
- return '<button class="campus-shortcut" id="campus-shortcut"><span aria-hidden="true">↗</span><span><strong>去校园逛逛</strong></span><b aria-hidden="true">›</b></button><details class="free-time"><summary><strong>自由安排</strong><span>还有 '+G.freeMinutes(state)+' 分钟</span></summary><div class="free-time-content"><p>独自</p><div class="activity-grid">'+buttons(false)+'</div>'+(list.some(a=>a.partner)?'<p>和'+(state.romance?.dating?'你的宝宝':'奶粉')+'一起</p><div class="activity-grid">'+buttons(true)+'</div>':'')+'</div></details>';
+ return '<button class="campus-shortcut" id="campus-shortcut"><span aria-hidden="true">↗</span><span><strong>去校园逛逛</strong></span><b aria-hidden="true">›</b></button><details class="free-time"><summary><strong>自由安排</strong><span>还有 '+G.freeMinutes(state)+' 分钟</span></summary><div class="free-time-content"><p>独自</p><div class="activity-grid">'+buttons(false)+'</div>'+(list.some(a=>a.partner)?'<p>和'+esc(partnerName())+'一起</p><div class="activity-grid">'+buttons(true)+'</div>':'')+'</div></details>';
 }
 
 function statusPanelHTML(){return `<aside class="status-panel"><div class="player-title"><img class="player-avatar" src="${asset('frog.png')}" alt=""><b>${esc(state.name)}</b></div>${state.admission?'<p class="identity-name">'+esc(G.identityOf(state).name)+'</p>':''}<div class="stats">${statHTML(state.stats)}</div><p class="status-rule">电量、学业、健康或心情归零即结束。</p><div class="trait-chips">${G.selectedTraits(state).map(id=>`<span>${esc(G.traits.find(t=>t.id===id).name)}</span>`).join('')}</div><button class="quit-btn" id="pause-run">返回首页</button></aside>`;}
-function normalSceneHTML(scene,expression,callback){return `${scene.majorScene||(scene.schoolScene&&state.phase==='outcome'&&state.outcome?.schoolWork)?'':scene.schoolScene&&S?S.sceneArtHTML(scene,state.school?.majorId):`<div class="scene-art expression-art ${scene.kind==='三餐'?'meal-art':scene.romanceScene||scene.mouseScene?'romance-art'+(scene.mouseScene?' mouse-art':''):''}"><span class="scene-doodle" aria-hidden="true">${scene.emoji}</span>${state.phase==='choice'&&scene.bubble?'<div class="scene-bubble">'+esc(scene.bubble)+'</div>':''}<img class="${expression.original?'original-expression':'expression-sticker'}" src="${asset(expression.file)}" alt="${esc(expression.alt)}">${scene.romanceScene?`<img class="naiwa-pink" src="${asset('frog-wave.png')}" alt="奶粉">`:""}${scene.mouseScene?`<img class="scene-naishu" src="${asset('naishu-cutout.png')}" alt="奶鼠">`:""}</div>`}<div class="story"><h1 tabindex="-1" id="scene-title">${esc(narrative(scene.title))}</h1>${state.phase==='choice'?`${callback?`<div class="callback">${esc(callback)}</div>`:''}<p>${esc(narrative(scene.schoolScene?scene.text.replace(/^第 \d+ 周 [^。]+。今天的小目标：/,''):scene.text))}</p><div class="choices">${scene.choices.map((c,i)=>`<button class="choice" data-choice="${i}" ${c.disabledReason||(c.mods.money||0)<-state.stats.money?'disabled':''}><span class="choice-code">${'ABCDE'[i]}</span><span class="choice-content"><strong>${esc(choiceText(c))}</strong>${choiceNotice(c)?`<span class="choice-costs">${choiceNotice(c)}</span>`:""}</span><span class="choice-arrow" aria-hidden="true">›</span></button>`).join('')}</div><p class="mobile-rule">电量、学业、健康或心情归零即结束。</p>`:`<div class="outcome" role="status"><span class="outcome-label">${state.outcome.identityEvent?'身份日常':state.outcome.majorWork?'专业实践完成':scene.schoolScene?(state.outcome.schoolMakeup?'补学完成':'课堂记录'):state.outcome.miniGame?'活动完成':'选择 '+('ABCDE'[state.outcome.index]||'')}</span><p>${esc(narrative(state.outcome.result)).replace(/\n/g,'<br>')}</p><div class="changes">${state.outcome.intimacyChange?'<span class="affection-change">亲密度 '+(state.outcome.intimacyChange>0?'+':'')+state.outcome.intimacyChange+'</span>':''}${state.outcome.project?'<span>课设 +'+state.outcome.project+'</span>':''}${G.keys.filter(k=>state.outcome.changes[k]).map(k=>`<span class="${state.outcome.changes[k]<0?'negative':''}">${G.labels[k]} ${state.outcome.changes[k]>0?'+':''}${state.outcome.changes[k]}</span>`).join('')}</div>${schoolWorkHTML()}${state.failed?'<div class="failure-notice">'+(state.failed==='fail-energy'?'电量归零，本局结束。':['fail-health','fail-mood'].includes(state.failed)?'健康或心情归零，奶蛙长眠。':state.failed==='fail-mouse-family'?'奶鼠全网呼叫奶家人，本局结束。':state.failed==='fail-course'?'两次缺交课设，本学期转入重修。':'学业归零，触发劝退。')+'</div>':''}<button class="button dark" id="next-scene">${state.failed||state.lottery?.won?'查看结局':scene.schoolScene||scene.majorScene?'继续':state.step===7?'今日结算':scene.kind==='三餐'&&!state.outcome.flags.missedMeal?'吃好了':'继续'}</button></div>`}</div>`;}
+function normalSceneHTML(scene,expression,callback){
+ const name=sceneFanName(scene),copy=value=>narrative(value,name),hasPartner=G.isFanInteraction(scene);
+ return `${scene.majorScene||(scene.schoolScene&&state.phase==='outcome'&&state.outcome?.schoolWork)?'':scene.schoolScene&&S?S.sceneArtHTML(scene,state.school?.majorId):`<div class="scene-art expression-art ${scene.kind==='三餐'?'meal-art':hasPartner||scene.mouseScene?'romance-art'+(scene.mouseScene?' mouse-art':''):''}"><span class="scene-doodle" aria-hidden="true">${scene.emoji}</span>${state.phase==='choice'&&scene.bubble?'<div class="scene-bubble">'+esc(name?namedFanCopy(scene.bubble,name):scene.bubble)+'</div>':''}<img class="${expression.original?'original-expression':'expression-sticker'}" src="${asset(expression.file)}" alt="${esc(expression.alt)}">${hasPartner?`<img class="naiwa-pink" src="${asset('frog-wave.png')}" alt="${esc(name||'奶粉')}">`:""}${scene.mouseScene?`<img class="scene-naishu" src="${asset('naishu-cutout.png')}" alt="奶鼠">`:""}</div>`}<div class="story"><h1 tabindex="-1" id="scene-title">${esc(copy(name&&state.phase==='outcome'?state.outcome.title:scene.title))}</h1>${state.phase==='choice'?`${callback?`<div class="callback">${esc(name?namedFanCopy(callback,name):callback)}</div>`:''}<p>${esc(copy(scene.schoolScene?scene.text.replace(/^第 \d+ 周 [^。]+。今天的小目标：/,''):scene.text))}</p><div class="choices">${scene.choices.map((c,i)=>`<button class="choice" data-choice="${i}" ${c.disabledReason||(c.mods.money||0)<-state.stats.money?'disabled':''}><span class="choice-code">${'ABCDE'[i]}</span><span class="choice-content"><strong>${esc(choiceText(c,name))}</strong>${choiceNotice(c)?`<span class="choice-costs">${choiceNotice(c)}</span>`:""}</span><span class="choice-arrow" aria-hidden="true">›</span></button>`).join('')}</div><p class="mobile-rule">电量、学业、健康或心情归零即结束。</p>`:`<div class="outcome" role="status"><span class="outcome-label">${state.outcome.identityEvent?'身份日常':state.outcome.majorWork?'专业实践完成':scene.schoolScene?(state.outcome.schoolMakeup?'补学完成':'课堂记录'):state.outcome.miniGame?'活动完成':'选择 '+('ABCDE'[state.outcome.index]||'')}</span><p>${esc(copy(state.outcome.result)).replace(/\n/g,'<br>')}</p><div class="changes">${state.outcome.intimacyChange?'<span class="affection-change">亲密度 '+(state.outcome.intimacyChange>0?'+':'')+state.outcome.intimacyChange+'</span>':''}${state.outcome.project?'<span>课设 +'+state.outcome.project+'</span>':''}${G.keys.filter(k=>state.outcome.changes[k]).map(k=>`<span class="${state.outcome.changes[k]<0?'negative':''}">${G.labels[k]} ${state.outcome.changes[k]>0?'+':''}${state.outcome.changes[k]}</span>`).join('')}</div>${schoolWorkHTML()}${state.failed?'<div class="failure-notice">'+(state.failed==='fail-energy'?'电量归零，本局结束。':['fail-health','fail-mood'].includes(state.failed)?'健康或心情归零，奶蛙长眠。':state.failed==='fail-mouse-family'?'奶鼠全网呼叫奶家人，本局结束。':state.failed==='fail-course'?'两次缺交课设，本学期转入重修。':'学业归零，触发劝退。')+'</div>':''}<button class="button dark" id="next-scene">${state.failed||state.lottery?.won?'查看结局':scene.schoolScene||scene.majorScene?'继续':state.step===7?'今日结算':scene.kind==='三餐'&&!state.outcome.flags.missedMeal?'吃好了':'继续'}</button></div>`}</div>`;
+}
 function openCurrentMini(){const p=state.miniGames?.pending;if(!p)return;const a=G.miniDefinitions[p.key];const settle=value=>{if(state?.miniGames?.pending?.token!==p.token)return;state=G.completeMini(state,value);persist();};const done=value=>{try{settle(value);gameView();collectAchievements();}catch{toast('这次成绩没有结算，请再试一次。');gameView();}};window.DormMiniUI.open({key:p.key,token:p.token,title:a[1].split(' ·')[0],pink:!!state.romance?.connected,cost:a[2]+' 分钟'+(a[3]?' · ¥'+a[3]:''),onResult:settle,onCancel:()=>{if(state?.miniGames?.pending?.token===p.token){state=G.cancelMini(state);persist();}gameView();},onDone:done});}
 function miniCollectionHTML(){if(!state.miniGames)return '';const p=state.miniGames.prizes;return '<section class="mini-prizes"><strong>校园收藏</strong><span>奶蛙 '+p.frog+'</span><span>奶粉 '+p.pink+'</span><span>奶鼠 '+p.mouse+'</span><button class="text-btn" id="open-mini-album">相册 ↗</button></section>';}
 function bindCourseEditor(origin,current){
@@ -355,7 +411,9 @@ function gameView(){
  renderEpoch++;clearCard();
  view='game';
  if(!state){home();return;}
- const admissionUpgrade=G.upgradeBreakfastRewards(G.upgradeDiningMenu(G.enableDailyAllowance(G.upgradeIdentityEvents(G.enableIdentityEvents(G.upgradeAdmission(state))))));if(admissionUpgrade!==state){state=admissionUpgrade;persist();}
+ const withoutAttendancePlan=G.enableAttendancePlanRemoval(state);
+ if(withoutAttendancePlan!==state){state=withoutAttendancePlan;persist();}
+ const admissionUpgrade=G.enableFanBook(G.upgradeBreakfastRewards(G.upgradeDiningMenu(G.enableDailyAllowance(G.upgradeIdentityEvents(G.enableIdentityEvents(G.upgradeAdmission(state)))))),2);if(admissionUpgrade!==state){state=admissionUpgrade;persist();}
  const characterUpgrade=G.enableCharacter(G.enableCampusRevision(G.enableLottery(G.enableEvolution(G.enableCampus(G.enableWellness(G.enableMeetings(G.enableIllness(G.enableFood(G.enableRhythm(G.enableStory(G.enableRomance(G.enableBalance(G.enableCare(G.enableLife(state)))))))))))))));const upgraded=G.enableMini(G.enableMealTuning(G.enableExpansion(G.enableNutrition(G.enableAudit(G.enableJourneys(G.enableRelationships(G.enableSocialUpdate(G.enableDining(characterUpgrade)))))))));if(upgraded!==state){state=upgraded;persist();}
  if(state.phase==='ending'||state.phase==='dayEnd'){endingView();return;}
  if(U&&state.majorLife?.pending){majorInteractionView();return;}
@@ -363,7 +421,7 @@ function gameView(){
  if(!seenEvents.includes(scene.id)){seenEvents.push(scene.id);write('naiwa-dorm-events-v2',seenEvents);}
  recent=recent.filter(id=>id!==scene.id).concat(scene.id).slice(-24);write('naiwa-dorm-recent-v2',recent);
  const callback=scene.callback?.replace('前情后续 · 这件事和你此前的经历或当前状态有关。','').trim();
- app.innerHTML=`<div class="game-layout">${statusPanelHTML()}<section class="game-main"><div class="mobile-stats" style="--stat-count:${G.statKeys(state.stats).length}">${statHTML(state.stats)}</div>${hungerHTML()}${agendaHTML()}${miniCollectionHTML()}${openingBuffHTML()}${mealRecoveryHTML()}${fanHTML()}${lotteryCreditHTML()}${illnessHTML()}${careHTML()}${romanceHTML()}<div class="scene-campus-nav"><button id="campus-open" class="campus-open">校园地图 <span aria-hidden="true">↗</span></button></div><div class="scene-header"><span class="scene-time">${esc(scene.time)} · ${esc(scene.place)}${scene.schoolScene?'<span class="school-course-label">'+esc(scene.categoryLabel||({pe:'体育课',elective:'选修课',common:'公共课'}[scene.category])||'专业课')+'</span>':''}</span><span class="scene-step">第 ${state.day} 天 · ${sceneProgress()}</span></div>${scene.kind==='三餐'?C.render(state,scene,{asset,esc,narrative,stall:mealStall}):normalSceneHTML(scene,expression,callback)}${freeTimeHTML()}</section></div>`;
+ app.innerHTML=`<div class="game-layout">${statusPanelHTML()}<section class="game-main"><div class="mobile-stats" style="--stat-count:${G.statKeys(state.stats).length}">${statHTML(state.stats)}</div>${hungerHTML()}${agendaHTML()}${miniCollectionHTML()}${openingBuffHTML()}${mealRecoveryHTML()}${fanHTML()}${lotteryCreditHTML()}${illnessHTML()}${careHTML()}${romanceHTML()}<div class="scene-campus-nav"><button id="campus-open" class="campus-open">校园地图 <span aria-hidden="true">↗</span></button></div><div class="scene-header"><span class="scene-time">${esc(scene.time)} · ${esc(scene.place)}${scene.schoolScene?'<span class="school-course-label">'+esc(scene.categoryLabel||({pe:'体育课',elective:'选修课',common:'公共课'}[scene.category])||'专业课')+'</span>':''}</span><span class="scene-step">第 ${state.day} 天 · ${sceneProgress()}</span></div>${['lab-work','lab-apply'].includes(state.campusLife?.pending?.key)?researchHTML():''}${scene.kind==='三餐'?C.render(state,scene,{asset,esc,narrative,stall:mealStall}):normalSceneHTML(scene,expression,callback)}${freeTimeHTML()}</section></div>`;
  bindSchoolOpen('game',()=>view==='game'&&state===renderedState&&renderEpoch===renderedEpoch);
  bindFans(()=>view==='game'&&state===renderedState&&renderEpoch===renderedEpoch);
  bindMajorOpen(()=>view==='game'&&state===renderedState&&renderEpoch===renderedEpoch);
@@ -393,10 +451,17 @@ function endingView(){
  if(unlocked.length&&!failed)speak('award');
  const today=state.log.filter(x=>x.day===state.day);
  const stats=G.statKeys(state.stats).map(k=>`<span class="${k==='money'&&state.stats[k]>9999?'large-money':''}">${G.labels[k]}<b>${k==='money'?'¥':''}${state.stats[k]}</b></span>`).join('');
- const recap=today.map(x=>`<li><time>${x.time}</time><span><strong>${esc(narrative(x.title))}</strong><br><b>${esc(x.choice)}</b></span></li>`).join('');
+ const recap=today.map(x=>{
+  const name=x.fanContactId?fanName(x.fanContactId):'';
+  return `<li><time>${x.time}</time><span><strong>${esc(narrative(x.title,name))}</strong><br><b>${esc(name?namedFanCopy(x.choice,name):x.choice)}</b></span></li>`;
+ }).join('');
  const signed=n=>(n>=0?'+':'')+n;
+ const positiveActions=positive?`
+  <p class="ending-next-note" id="ending-next-note">卡片保存为图片。接下来可以继续本局，或开始新一局。</p>
+  <button class="button dark" id="resume-positive">继续本局 · 第 ${state.day+1} 天</button>
+  <button class="button white" id="restart">开始新一局</button>`:'';
  const dailyActions=daily?`<div class="rest-note"><h3>明日变化</h3><div><span>电量 <b>+${rest.changes.energy||0}</b></span><span>生活费 <b>${signed(rest.changes.money||0)}</b></span><span>新课压力 <b>学业 −${rest.pressure}</b></span>${Number.isFinite(state.stats.health)?`<span>健康 <b>${signed(rest.changes.health||0)}</b></span><span>心情 <b>${signed(rest.changes.mood||0)}</b></span>`:''}</div>${rest.failed?'<strong class="rest-warning">'+(['fail-health','fail-mood'].includes(rest.failed)?'健康或心情不足，继续拖延会触发奶蛙长眠。':'学业不足，继续明天会触发劝退。')+'</strong>':''}</div><button class="button dark" id="continue-day">继续第 ${state.day+1} 天</button><button class="button white" id="retire-run">结束本局</button>`:'';
- app.innerHTML=`<section class="ending-page"><div class="ending-top"><p class="eyebrow">第 ${state.day} 天</p><h1>${failed?'这次，先到这里。':daily?'今天，平安回寝。':positive?'这一段，圆满收尾。':'本次人生已结束。'}</h1>${finaleTag}<p>${unlocked.length?'新成就 +'+unlocked.length:'今日结算'} · 成就 ${currentAchievementCount()} / ${A.items.length}</p></div><div class="ending-layout"><article class="ending-card ${failed?'failed-card':positive?'positive-card':''}" id="result-card"><div class="card-top"><span>奶蛙宿舍</span><span>${e.icon}</span></div><img class="ending-frog ending-meme" src="${asset(E.ending(e).file)}" alt="${esc(E.ending(e).alt)}"><span class="eyebrow">${esc(state.name)}</span><h2 class="ending-name">${e.name}</h2><p class="ending-quote">${e.quote}</p><div class="ending-stats" style="--ending-columns:${G.statKeys(state.stats).length>4?3:4}">${stats}</div><div class="ending-card-bottom"><span>重生之我在宿舍当奶蛙</span><span>第 ${state.day} 天</span></div></article><div class="ending-extra">${daily?positiveRoutesHTML():''}${taskHTML()}${illnessHTML()}${careHTML()}${romanceHTML()}<div class="ending-actions">${dailyActions}<button class="button ${daily?'white':'dark'}" id="save-card">保存卡片</button><button class="button white" id="copy-result">复制结果</button>${positive?'<button class="button white" id="resume-positive">继续校园生活</button>':''}${canShareStart(state)?'<button class="text-btn" id="share-start">分享同一起点</button>':''}<button class="quit-btn" id="restart">重新开始</button></div><div id="image-fallback"></div><details class="recap"><summary>今日回顾</summary><ol>${recap||'<li>今天还没来得及出门。</li>'}</ol></details></div></div></section>`;
+ app.innerHTML=`<section class="ending-page"><div class="ending-top"><p class="eyebrow">第 ${state.day} 天</p><h1>${failed?'这次，先到这里。':daily?'今天，平安回寝。':positive?'这一段，圆满收尾。':'本次人生已结束。'}</h1>${finaleTag}<p>${unlocked.length?'新成就 +'+unlocked.length:'今日结算'} · 成就 ${currentAchievementCount()} / ${A.items.length}</p></div><div class="ending-layout"><article class="ending-card ${failed?'failed-card':positive?'positive-card':''}" id="result-card"><div class="card-top"><span>奶蛙宿舍</span><span>${e.icon}</span></div><img class="ending-frog ending-meme" src="${asset(E.ending(e).file)}" alt="${esc(E.ending(e).alt)}"><span class="eyebrow">${esc(state.name)}</span><h2 class="ending-name">${e.name}</h2><p class="ending-quote">${e.quote}</p><div class="ending-stats" style="--ending-columns:${G.statKeys(state.stats).length>4?3:4}">${stats}</div><div class="ending-card-bottom"><span>重生之我在宿舍当奶蛙</span><span>第 ${state.day} 天</span></div></article><div class="ending-extra">${daily?positiveRoutesHTML():''}${taskHTML()}${illnessHTML()}${careHTML()}${romanceHTML()}<div class="ending-actions">${dailyActions}<button class="button ${daily||positive?'white':'dark'}" id="save-card"${positive?' aria-describedby="ending-next-note"':''}>保存卡片</button><button class="button white" id="copy-result">复制结果</button>${positiveActions}${canShareStart(state)?'<button class="text-btn" id="share-start">分享同一起点</button>':''}${positive?'':'<button class="quit-btn" id="restart">重新开始</button>'}</div><div id="image-fallback"></div><details class="recap"><summary>今日回顾</summary><ol>${recap||'<li>今天还没来得及出门。</li>'}</ol></details></div></div></section>`;
  bindClinic(renderedState);bindExtraCare(renderedState);
  document.querySelectorAll('[data-ending-route]').forEach(b=>b.onclick=()=>{collectionTab='finales';showAchievement(b.dataset.endingRoute,'collection',true);});
  document.querySelector('#restart').onclick=()=>startDraft();
@@ -429,7 +494,8 @@ function showCollection(){
  const lock='<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
  document.querySelector('#collection-grid').innerHTML=(endingTab?F.items:historical?legacy:A.items).map(e=>{
   const known=endingTab?!!finales[e.id]:seen.includes(e.id);
-  return known?'<button type="button" class="collection-item unlocked" '+(endingTab?'data-finale':'data-achievement')+'="'+esc(e.id)+'" aria-label="查看'+esc(e.name)+'的触发记录"><span class="collection-meme"><img src="'+asset(E.ending(e).file)+'" alt=""></span><strong class="collection-name">'+esc(e.name)+'</strong>'+achievementBadge(e)+'<span class="collection-hint" aria-hidden="true">↗</span></button>':'<div class="collection-item locked" aria-label="未解锁">'+lock+'</div>';
+  const name=endingTab?finales[e.id]?.name||e.name:e.name;
+  return known?'<button type="button" class="collection-item unlocked" '+(endingTab?'data-finale':'data-achievement')+'="'+esc(e.id)+'" aria-label="查看'+esc(name)+'的触发记录"><span class="collection-meme"><img src="'+asset(E.ending(e).file)+'" alt=""></span><strong class="collection-name">'+esc(name)+'</strong>'+achievementBadge(e)+'<span class="collection-hint" aria-hidden="true">↗</span></button>':'<div class="collection-item locked" aria-label="未解锁">'+lock+'</div>';
  }).join('');
  document.querySelectorAll('[data-collection-tab]').forEach(b=>b.onclick=()=>{collectionTab=b.dataset.collectionTab;showCollection();});
  document.querySelectorAll('[data-achievement]').forEach(b=>b.onclick=()=>showAchievement(b.dataset.achievement,'collection'));
@@ -442,7 +508,7 @@ function showAchievement(id,origin,isFinale=false){
  const proof=isFinale?finales[id]:achievementEvidence[id],facts=Array.isArray(proof?.facts)?proof.facts.filter(s=>typeof s==='string').slice(0,8):[];
  const rule=typeof proof?.rule==='string'?proof.rule:isFinale?e.rule:current?A.describe(id).rule:A.legacyRule(id);
  const oldRule=!isFinale&&current&&!facts.length?'<p class="achievement-legacy">旧版收录条件：'+esc(A.legacyRule(id))+'</p>':'';
- document.querySelector('#achievement-detail-title').textContent=e.name;
+ document.querySelector('#achievement-detail-title').textContent=isFinale?proof?.name||e.name:e.name;
  document.querySelector('#achievement-detail-body').innerHTML='<div class="achievement-detail-art"><img src="'+asset(E.ending(e).file)+'" alt="'+esc(E.ending(e).alt)+'">'+achievementBadge(e)+'</div>'+oldRule+'<p class="achievement-detail-rule">'+esc(rule||'旧版结局记录。')+'</p>'+(facts.length?'<p class="collection-meta">'+esc(isFinale?proof.player||'奶蛙':proof.name||'奶蛙')+' · 第 '+esc(proof.day)+' 天'+(isFinale?'达成':'解锁')+'</p><ul class="achievement-facts">'+facts.map(f=>'<li>'+esc(f)+'</li>').join('')+'</ul>':'<p class="achievement-legacy">旧版已收录，未保存当时的触发记录。'+(!isFinale&&current?'以上为当前解锁条件。':'')+'</p>');
  achievementReturn=origin;document.querySelector(origin==='unlock'?'#unlock-modal':'#collection-modal').close();
  document.querySelector('#achievement-detail').showModal();
