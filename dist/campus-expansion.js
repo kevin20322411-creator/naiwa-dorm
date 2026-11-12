@@ -2,7 +2,7 @@
 'use strict';
 const browser=typeof module==='undefined'||!module.exports,B=browser?root.DormGame:require('./campus-dining.js'),legacy=browser?root.DormPublishedJourneys:require('./journeys.js');
 const hash=t=>{let h=2166136261;for(const c of String(t))h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0;},roll=(s,key)=>B.rng(hash(s.seed+':campus83:'+s.day+':'+s.log.length+':'+key))(),clock=n=>String(Math.floor(n/60)%24).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
-let campusRules={labThreshold:75};
+let campusRules={labThreshold:75,researchBonus:0};
 function withCampusRules(rules,run){const before=campusRules;campusRules={...before,...rules};try{return run();}finally{campusRules=before;}}
 const fail=s=>s.stats.health<=0?'fail-health':s.stats.mood<=0?'fail-mood':s.stats.energy<=0?'fail-energy':s.stats.study<=0?'fail-study':s.term?.missed>=2?'fail-course':null;
 const delta=(a,b)=>Object.fromEntries(B.keys.filter(k=>a[k]!==b[k]).map(k=>[k,b[k]-a[k]]));
@@ -44,7 +44,7 @@ function researchGain(s){
  const base=3+Math.floor(roll(s,'research-base')*4);
  const studyBonus=roll(s,'research-study')<s.stats.study/100?3:0;
  const moodBonus=roll(s,'research-mood')<s.stats.mood/100?3:0;
- return base+studyBonus+moodBonus;
+ return (base+studyBonus+moodBonus)*(100+campusRules.researchBonus)/100;
 }
 function customScene(s){const p=s.campusLife.pending,key=p.key,place=definitions[key][0],shift=shifts[key],base={id:s.eventId,time:clock(p.at),place:placeNames[place],kind:shift?'校园兼职':'校园探索',emoji:shift?.emoji||'🌿',bubble:shift?'按班次领报酬。':'去做一件自己想做的事。'};if(p.done)return{...base,title:s.outcome.title,text:'',choices:[]};let title,text,choices;
  if(shift){

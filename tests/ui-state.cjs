@@ -3,7 +3,7 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const source=__dirname+'/../dist/';
 function boot(storage=new Map(),search='',blockedWrites=new Set()){
  const nodes=new Map(),lists=new Map();let html='';
- const staticIds=new Set(['app','toast','collection-count','sound-btn','music-btn','collection-btn','collection-modal','collection-grid','collection-tabs','achievement-detail','achievement-detail-title','achievement-detail-body','achievement-detail-close','achievement-detail-back','close-modal','close-modal-bottom','unlock-modal','unlock-title','unlock-list','unlock-close','unlock-accept','unlock-book','version-btn','footer-version','release-modal','release-version','release-date','release-list','release-skip','release-close','release-accept']);
+ const staticIds=new Set(['app','toast','collection-count','sound-btn','music-btn','collection-btn','collection-modal','collection-grid','collection-tabs','achievement-detail','achievement-detail-title','achievement-detail-body','achievement-detail-close','achievement-detail-back','close-modal','close-modal-bottom','unlock-modal','unlock-title','unlock-list','unlock-close','unlock-accept','unlock-book','version-btn','footer-version','release-modal','release-version','release-date','release-list','release-skip','release-close','release-accept','status-details','status-details-title','status-details-summary','status-details-values','status-details-close']);
  function element(id){if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',style:{},dataset:{},classList:{add(){},remove(){}},setAttribute(){},focus(){},showModal(){this.open=true;},close(){this.open=false;},getBoundingClientRect(){return{left:0,top:0,right:100,bottom:100};}});return nodes.get(id);}
  const app=element('app');Object.defineProperty(app,'innerHTML',{get(){return html;},set(value){html=value;for(const key of nodes.keys())if(!staticIds.has(key)&&key!=='brand'&&key!=='intro')nodes.delete(key);lists.clear();}});
  const document={
@@ -17,7 +17,7 @@ function boot(storage=new Map(),search='',blockedWrites=new Set()){
  return{document,storage,audioCalls,clipboardCalls,G:ctx.DormGame,A:ctx.DormAchievementBook,html:()=>html,saved:()=>JSON.parse(storage.get('naiwa-dorm-run-v2')||'null')};
 }
 function pickIdentity(ui){const cards=ui.document.querySelectorAll('[data-identity]');if(cards.length&&!/class="identity-card[^"]*\bselected\b/.test(ui.html()))cards[0].onclick();}
-const releaseUI=boot();assert(releaseUI.document.querySelector('#release-modal').open,'进入时自动展示公告');assert.equal(releaseUI.document.querySelector('#release-version').textContent,'v9.9');assert(releaseUI.document.querySelector('#release-list').innerHTML.includes('新增科研进度'));assert(!/概率|100万|1000000|20%|亲密度|触发条件/.test(releaseUI.document.querySelector('#release-list').innerHTML),'公告不泄露结果与条件');
+const releaseUI=boot();assert(releaseUI.document.querySelector('#release-modal').open,'进入时自动展示公告');assert.equal(releaseUI.document.querySelector('#release-version').textContent,'v9.10');assert(releaseUI.document.querySelector('#release-list').innerHTML.includes('新增校园偶遇与多人通讯录'));assert(!/概率|100万|1000000|20%|亲密度|触发条件/.test(releaseUI.document.querySelector('#release-list').innerHTML),'公告不泄露结果与条件');
 releaseUI.document.querySelector('#release-accept').onclick();assert(!releaseUI.document.querySelector('#release-modal').open);assert(boot(releaseUI.storage).document.querySelector('#release-modal').open,'未选择不再提醒时，下次进入仍展示');releaseUI.document.querySelector('#version-btn').onclick();assert(releaseUI.document.querySelector('#release-modal').open,'顶部版本可重新查看');releaseUI.document.querySelector('#release-skip').checked=true;releaseUI.document.querySelector('#release-close').onclick();assert(!boot(releaseUI.storage).document.querySelector('#release-modal').open,'同版本不再提醒');const olderRelease=boot(new Map([['naiwa-dorm-release-hidden','"6.11"']]));assert(olderRelease.document.querySelector('#release-modal').open,'新版本重新提醒');olderRelease.document.querySelector('#release-modal').oncancel({preventDefault(){}});assert(!olderRelease.document.querySelector('#release-modal').open,'Escape可关闭');assert.equal(releaseUI.saved(),null,'公告操作不修改游戏存档');
 const lockUI=boot();lockUI.document.querySelector('#new-run').onclick();
 lockUI.document.querySelector('#player-name').value='锁定奶蛙';
@@ -97,7 +97,7 @@ deadlineUI.document.querySelectorAll('[data-choice]')[0].onclick();assert.equal(
 deadlineUI.document.querySelector('#next-scene').onclick();assert.equal(deadlineUI.saved().phase,'dayEnd');
 deadlineUI.document.querySelector('#continue-day').onclick();assert.equal(deadlineUI.saved().day,8);assert.equal(deadlineUI.saved().term.progress,0);
 const loveSample=require('./romance.cjs').simulate(0);
-const noContact=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(loveSample.encounter)]]));noContact.document.querySelector('#resume-run').onclick();assert(!noContact.html().includes('aria-label="亲密度"'));assert(noContact.html().includes('奶粉'));assert(!noContact.html().includes('粉色的奶蛙'));assert(!noContact.html().includes('一只奶粉'));
+const noContact=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(loveSample.encounter)]]));noContact.document.querySelector('#resume-run').onclick();assert(!noContact.html().includes('aria-label="亲密度"'));assert(noContact.html().includes(noContact.G.meetingName(noContact.saved())));assert(!noContact.html().includes('粉色的奶蛙'));assert(!noContact.html().includes('一只奶粉'));
 const contactUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(loveSample.contact)]]));contactUI.document.querySelector('#resume-run').onclick();assert(contactUI.html().includes('aria-valuenow="20"'));assert(contactUI.html().includes('alt="奶粉"'));
 const confessUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(loveSample.confession)]]));confessUI.document.querySelector('#resume-run').onclick();confessUI.document.querySelectorAll('[data-choice]')[0].onclick();assert(confessUI.saved().romance.dating);assert(!confessUI.document.querySelector('#unlock-modal').open,'刚表白成功还不足以解锁更高门槛恋爱成就');
 assert.equal(confessUI.audioCalls.filter(c=>c.type==='play').length,0);assert(!JSON.parse(confessUI.storage.get('naiwa-dorm-endings-v1')||'[]').includes('love-ending'));
@@ -123,7 +123,7 @@ sickUI.document.querySelector('#clinic-btn').onclick();assert(sickUI.html().incl
 const sickDayUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(illnessSamples.dayEnd)]]));sickDayUI.document.querySelector('#resume-run').onclick();assert(sickDayUI.html().includes('预约明早校医'));assert(!sickDayUI.html().includes('<b>+-'));assert(/健康 <b>-\d/.test(sickDayUI.html()));
 sickDayUI.document.querySelector('#clinic-btn').onclick();const careIndex=sickDayUI.document.querySelectorAll('[data-choice]').findIndex(b=>!b.disabled);sickDayUI.document.querySelectorAll('[data-choice]')[careIndex].onclick();assert(sickDayUI.saved().illness.appointment);assert(sickDayUI.html().includes('已预约明早校医'));assert.equal(sickDayUI.document.querySelector('#clinic-btn'),null);sickDayUI.document.querySelector('#continue-day').onclick();assert(!sickDayUI.saved().illness.active);assert(sickDayUI.G.valid(sickDayUI.saved()));
 const meetingSamples=require('./meetings.cjs').fixtures();
-const groupUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(meetingSamples.group)]]));groupUI.document.querySelector('#resume-run').onclick();assert(groupUI.html().includes('小组作业'));if(groupUI.G.getScene(groupUI.saved()).naifenInitiated){assert(groupUI.html().includes('奶粉主动'));groupUI.document.querySelectorAll('[data-choice]')[0].onclick();assert(groupUI.saved().romance.connected);}else{assert(groupUI.html().includes('先一起拆解任务'));groupUI.document.querySelectorAll('[data-choice]')[1].onclick();assert.equal(groupUI.saved().outcome.project,6);}assert(groupUI.G.valid(groupUI.saved()));
+const groupUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(meetingSamples.group)]]));groupUI.document.querySelector('#resume-run').onclick();assert(groupUI.html().includes('小组作业'));const groupName=groupUI.G.meetingName(groupUI.saved());assert(groupName&&groupUI.html().includes(groupName));if(groupUI.G.getScene(groupUI.saved()).naifenInitiated){assert(groupUI.html().includes(groupName+'主动'));groupUI.document.querySelectorAll('[data-choice]')[0].onclick();assert(groupUI.saved().romance.connected);}else{assert(groupUI.html().includes('先一起拆解任务'));groupUI.document.querySelectorAll('[data-choice]')[1].onclick();assert.equal(groupUI.saved().outcome.project,6);}assert(groupUI.G.valid(groupUI.saved()));
 const declinedUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(meetingSamples.declinedBefore)]]));declinedUI.document.querySelector('#resume-run').onclick();declinedUI.document.querySelectorAll('[data-choice]')[0].onclick();if(!declinedUI.saved().romance.connected){assert.equal(declinedUI.saved().outcome.changes.mood,-6);assert(declinedUI.html().includes('心情 -6'));}assert(declinedUI.G.valid(declinedUI.saved()));
 const junkUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(illnessSamples.menu)]]));junkUI.document.querySelector('#resume-run').onclick();assert(junkUI.G.getScene(junkUI.saved()).choices.some(c=>c.riskFood));assert(!junkUI.html().includes('可能引起身体不适'));assert(!junkUI.html().includes('患病风险'));
 const wellnessSamples=require('./wellness.cjs').fixtures();
@@ -142,7 +142,7 @@ console.log('通过：彩票价格、不买继续、百万大奖结局和金额�
 
 assert.equal(lockUI.G.selectedTraits(lockUI.saved()).length,3,'三项天赋实际进入存档');assert(Number.isFinite(lockUI.saved().stats.charm));assert.equal(ui.G.traits.length,41);
 const charFixture=require('./fixtures/v6-character.json');const bittenUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(charFixture.bitten)]]));bittenUI.document.querySelector('#resume-run').onclick();assert(bittenUI.html().includes('及时'));const biteNotice=bittenUI.html().split('aria-label="奶鼠咬伤"')[1]?.split('</section>')[0]||'';assert(!/最迟|逾期|长眠/.test(biteNotice));assert(!bittenUI.html().includes('逾期会触发'));
-const proposalUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(charFixture.proposal)]]));proposalUI.document.querySelector('#resume-run').onclick();assert(proposalUI.html().includes('奶粉认真说出了自己的心意'));proposalUI.document.querySelectorAll('[data-choice]')[1].onclick();assert(!proposalUI.saved().romance.connected);assert(proposalUI.G.valid(proposalUI.saved()));
+const proposalUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(charFixture.proposal)]]));proposalUI.document.querySelector('#resume-run').onclick();const proposer=proposalUI.saved().admission.contacts.find(c=>c.id===proposalUI.saved().admission.partnerId);assert(proposalUI.html().includes(proposer.name+'认真说出了自己的心意'));proposalUI.document.querySelectorAll('[data-choice]')[1].onclick();assert(!proposalUI.saved().romance.connected);assert(proposalUI.G.valid(proposalUI.saved()));
 const mouseHiddenUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(charFixture.hidden)]]));mouseHiddenUI.document.querySelector('#resume-run').onclick();assert(mouseHiddenUI.html().includes('奶鼠全网呼叫'));assert(mouseHiddenUI.html().includes('奶蛙被赶来的奶家人'));assert(!mouseHiddenUI.html().includes('奶娃'));assert.equal(mouseHiddenUI.document.querySelector('#continue-day'),null);
 console.log('通过：三天赋、魅力、无剧透疫苗提示、奶粉主动表白和奶鼠隐藏结局。');
 
@@ -156,7 +156,7 @@ console.log('通过：背景解锁、临时分享背景、开局链接安全校�
 
 const playerQuery='?seed=2112117372&bg=sport&traits=chosen,food,athletic',playerShare=boot(new Map([['naiwa-dorm-run-v2',existingRun]]),playerQuery);assert(playerShare.html().includes('体验这个开局'));assert(playerShare.html().includes('继续我的存档'));for(const name of ['运动社新成员','天选之子','天选干饭人','运动底子'])assert(playerShare.html().includes(name));assert(!playerShare.document.querySelector('#share-start'),'受邀页面不混入旧存档分享入口');playerShare.document.querySelector('#new-run').onclick();assert(playerShare.html().includes('确认这次的开局'));assert(playerShare.html().includes('已选：天选之子 · 天选干饭人 · 运动底子'));assert.equal(playerShare.storage.get('naiwa-dorm-run-v2'),existingRun);playerShare.document.querySelector('#back-home').onclick();assert(playerShare.html().includes('体验这个开局'),'取消确认后仍可返回同一起点');playerShare.document.querySelector('#random-run').onclick();assert.equal(playerShare.document.querySelectorAll('[data-remove-trait]').length,0);playerShare.document.querySelector('#back-home').onclick();playerShare.document.querySelector('#new-run').onclick();pickIdentity(playerShare);playerShare.document.querySelector('#enroll').onclick();assert.equal(playerShare.saved().seed,2112117372);assert.equal(playerShare.saved().journeys.backgroundId,'sport');assert.deepEqual(playerShare.G.selectedTraits(playerShare.saved()),['chosen','food','athletic']);assert(playerShare.G.valid(playerShare.saved()));assert(boot(new Map(),playerQuery.replaceAll('&','\\&')).html().includes('体验这个开局'),'兼容聊天文本中的转义连接符');console.log('通过：用户实际分享链接、清晰入口、取消返回、随机开局与旧档保护。');
 
-const chatFixture=require('./relationships.cjs').fixtures().start,chatUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(chatFixture)]]));chatUI.document.querySelector('#resume-run').onclick();assert(!/今天她有件开心的小事|今天她有些疲惫|今天她忙着赶任务/.test(chatUI.html()),'关系卡不直接展示奶粉的想法');chatUI.document.querySelectorAll('[data-activity]').find(b=>b.dataset.activity==='ask-chat').onclick();assert(chatUI.html().includes('奶蛙给你的宝宝发了条消息。'));assert(chatUI.html().includes('聊点什么呢？'));assert(chatUI.html().includes('聊到一半刷起手机，迟迟没有回复'));assert(!/今天她有件开心的小事|今天她有些疲惫|今天她忙着赶任务/.test(chatUI.html()),'场景正文不重复公开对方想法');chatUI.document.querySelectorAll('[data-choice]')[2].onclick();assert(chatUI.html().includes('以为你正在忙'));assert(chatUI.G.valid(chatUI.saved()),'文案调整不影响游戏存档');console.log('通过：自然聊天文案、不泄露奶粉想法、旧流程回放。');
+const chatFixture=require('./relationships.cjs').fixtures().start,chatUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(chatFixture)]]));chatUI.document.querySelector('#resume-run').onclick();assert(!/今天她有件开心的小事|今天她有些疲惫|今天她忙着赶任务/.test(chatUI.html()),'关系卡不直接展示奶粉的想法');chatUI.document.querySelectorAll('[data-activity]').find(b=>b.dataset.activity==='ask-chat').onclick();const chatPartner=chatUI.saved().admission.contacts.find(c=>c.id===chatUI.saved().admission.partnerId);assert(chatUI.html().includes('奶蛙给'+chatPartner.name+'发了条消息。'));assert(chatUI.html().includes('聊点什么呢？'));assert(chatUI.html().includes('聊到一半刷起手机，迟迟没有回复'));assert(!/今天她有件开心的小事|今天她有些疲惫|今天她忙着赶任务/.test(chatUI.html()),'场景正文不重复公开对方想法');chatUI.document.querySelectorAll('[data-choice]')[2].onclick();assert(chatUI.html().includes('以为你正在忙'));assert(chatUI.G.valid(chatUI.saved()),'文案调整不影响游戏存档');console.log('通过：自然聊天文案、不泄露奶粉想法、旧流程回放。');
 
 const relationTests=require('./relationships.cjs'),promiseFixture=relationTests.fixtures().promise,promiseDue=relationTests.until(promiseFixture,s=>s.phase==='dayEnd'&&s.day===promiseFixture.relationships.promise.dueDay),dueUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(promiseDue)]]));dueUI.document.querySelector('#resume-run').onclick();const expectedRest=dueUI.G.restPreview(dueUI.saved()),expectedMood=expectedRest.changes.mood;assert(dueUI.html().includes('心情 <b>'+(expectedMood>=0?'+':'')+expectedMood+'</b>'),'失约的次日预览显示实际心情变化');dueUI.document.querySelector('#continue-day').onclick();assert.equal(dueUI.saved().stats.mood,expectedRest.stats.mood);assert(dueUI.G.valid(dueUI.saved()));console.log('通过：失约次日预览、实际结算与存档一致。');
 
@@ -242,6 +242,7 @@ const identityRefresh=boot();identityRefresh.document.querySelector('#new-run').
 const oldIdentityReroll=identityRefresh.document.querySelector('#identity-reroll').onclick;oldIdentityReroll();const afterFirstIdentity=identityRefresh.html();oldIdentityReroll();assert.equal(identityRefresh.html(),afterFirstIdentity,'旧身份刷新回调不能继续消耗次数');identityRefresh.document.querySelector('#identity-reroll').onclick();const lastBatch=identityRefresh.html();identityRefresh.document.querySelector('#identity-reroll').onclick();assert.equal(identityRefresh.html(),lastBatch,'身份最多刷新两次');pickIdentity(identityRefresh);
 identityRefresh.document.querySelectorAll('[data-trait]')[0].onclick();const heldTalent=identityRefresh.document.querySelectorAll('[data-remove-trait]')[0].dataset.removeTrait;identityRefresh.document.querySelector('#reroll').onclick();identityRefresh.document.querySelector('#reroll').onclick();const exhausted=identityRefresh.html();identityRefresh.document.querySelector('#reroll').onclick();assert.equal(identityRefresh.html(),exhausted,'天赋最多刷新两次');assert.equal(identityRefresh.document.querySelectorAll('[data-remove-trait]')[0].dataset.removeTrait,heldTalent,'已选天赋照常保留');
 const celebrityQuery='?seed=72&bg=freshman&identity=celebrity&traits=gold-brain,gold-battery,optimist',celebrityUI=boot(new Map(),celebrityQuery);celebrityUI.document.querySelector('#new-run').onclick();assert(celebrityUI.html().includes('男明星'));assert(celebrityUI.html().includes('rarity-gold'));assert(!/SSR|金色天赋|金色身份/.test(celebrityUI.html()),'金色只通过按钮外观表现');celebrityUI.document.querySelector('#enroll').onclick();assert.equal(celebrityUI.saved().admission.id,'celebrity');assert.equal(celebrityUI.saved().stats.charm,100);assert(celebrityUI.html().includes('生活费'));assert(!celebrityUI.html().includes('饭钱'));
+assert(!celebrityUI.document.querySelector('#fan-book'),'首次选择之前不显示无法回应的邀请');
 celebrityUI.document.querySelectorAll('[data-choice]')[0].onclick();
 const book=celebrityUI.document.querySelector('#fan-book');
 assert(!celebrityUI.html().includes('id="fan-book" open'),'通讯录默认折叠');
@@ -249,10 +250,12 @@ book.open=true;book.ontoggle();
 const invites=celebrityUI.saved().admission.contacts;
 const names=invites.map(c=>celebrityUI.G.fanIdentity(c).name);
 assert([2,3].includes(invites.length));assert.equal(new Set(names).size,invites.length);
+let firstAccepted;
 for(const contact of invites){
  const accept=celebrityUI.document.querySelectorAll('[data-fan-reply]').find(b=>b.dataset.fanReply===contact.id+'|yes').onclick;
  accept();
  const accepted=celebrityUI.storage.get('naiwa-dorm-run-v2');
+ if(!firstAccepted)firstAccepted=accepted;
  accept();
  assert.equal(celebrityUI.storage.get('naiwa-dorm-run-v2'),accepted,'重复点击搭讪不会重复添加或推进剧情');
  assert(celebrityUI.html().includes('id="fan-book" open'),'添加后保持展开');
@@ -260,6 +263,17 @@ for(const contact of invites){
 assert(celebrityUI.html().includes(invites.length+' 位联系人'));
 assert(celebrityUI.saved().admission.contacts.every(c=>c.status==='known'));
 assert(celebrityUI.G.valid(celebrityUI.saved()));
+const fanChatUI=boot(new Map([['naiwa-dorm-run-v2',firstAccepted]]));
+fanChatUI.document.querySelector('#resume-run').onclick();
+const startFanChat=fanChatUI.document.querySelectorAll('[data-fan-chat]')[0].onclick;
+startFanChat();
+assert.equal(fanChatUI.saved().eventId,'love-active-ask-chat','通讯录直接进入聊天事件');
+assert(fanChatUI.html().match(/id="scene-title">([^<]+)/)[1].includes(names[0]));
+assert.equal(fanChatUI.document.querySelectorAll('[data-fan-reply]').length,0,'聊天选择期间隐藏尚不能回应的邀请');
+assert(!fanChatUI.html().includes('待回应'));
+const openedFanChat=fanChatUI.storage.get('naiwa-dorm-run-v2');startFanChat();
+assert.equal(fanChatUI.storage.get('naiwa-dorm-run-v2'),openedFanChat);
+assert(fanChatUI.G.valid(fanChatUI.saved()));
 const firstId=invites[0].id,secondId=invites[1].id;
 const interact=key=>celebrityUI.document.querySelectorAll('[data-activity]').find(b=>b.dataset.activity===key).onclick();
 const switchFan=id=>celebrityUI.document.querySelectorAll('[data-fan-focus]').find(b=>b.dataset.fanFocus===id).onclick();
@@ -294,6 +308,20 @@ assert(celebReload.clipboardCalls[0].includes('gold-brain'));
 const noIdentityGold=boot(new Map(),celebrityQuery.replace('&identity=celebrity',''));assert(!noIdentityGold.html().includes('体验这个开局'),'旧链接不能混入无法回放的新天赋');
 console.log('通过：身份与天赋刷新上限、已选锁定、金色按钮、生活费标签、男明星多人搭讪、重复点击防护及新身份分享链接。');
 
+const contactsTest=require('./admission.cjs'),naturalFirst=contactsTest.meetAndAdd(contactsTest.create('celebrity',undefined,72));
+const naturalUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(naturalFirst.before)]]));
+naturalUI.document.querySelector('#resume-run').onclick();
+assert(naturalUI.html().match(/id="scene-title">([^<]+)/)[1].includes(naturalFirst.name));
+assert.equal(naturalUI.document.querySelectorAll('[data-fan-reply]').length,0);
+naturalUI.document.querySelectorAll('[data-choice]')[0].onclick();
+const earlierInvite=naturalFirst.before.admission.contacts.find(c=>c.day<naturalFirst.before.day);
+const addEarlier=naturalUI.document.querySelectorAll('[data-fan-reply]').find(b=>b.dataset.fanReply===earlierInvite.id+'|yes');
+assert(addEarlier,'先偶遇并添加同学后，可以回应之前的邀请');
+addEarlier.onclick();
+assert(naturalUI.html().includes('2 位联系人'));
+assert(naturalUI.html().match(/id="scene-title">([^<]+)/)[1].includes(naturalFirst.name));
+assert(naturalUI.G.valid(naturalUI.saved()));
+
 const classmateUI=boot(new Map(),'?seed=72&bg=freshman&identity=classmate&traits=gold-brain,gold-battery,optimist');
 classmateUI.document.querySelector('#new-run').onclick();classmateUI.document.querySelector('#enroll').onclick();
 assert(classmateUI.html().match(/class="romance-card"[\s\S]*?<span>老同学<\/span>/),'老同学身份不显示陌生人的关系阶段');
@@ -321,7 +349,7 @@ const appSource=fs.readFileSync(source+'app.js','utf8'),fanSource=appSource.slic
 function contactStatus(connected){
  return vm.runInNewContext(fanSource+';fanHTML();',{
   state:{day:1,romance:{dating:false,connected},admission:{id:'celebrity',partnerId:'fan-1-0',contacts:[{id:'fan-1-0',name:'小桃',day:1,status:'known',romance:{connected:true}}]}},
-  G:{canManageFans:()=>true,fanIdentity:celebrityUI.G.fanIdentity},asset:name=>'./assets/'+name,esc:s=>s,fanBookOpen:false
+  G:{canManageFans:()=>true,canRespondToFan:()=>false,availableActivities:()=>[],fanIdentity:celebrityUI.G.fanIdentity},asset:name=>'./assets/'+name,esc:s=>s,fanBookOpen:false
  });
 }
 assert(contactStatus(true).includes('当前互动'));
@@ -358,3 +386,37 @@ assert(retiredPlanUI.saved().school.pending);
 assert(retiredPlanUI.html().includes('这节不去了'));
 assert(retiredPlanUI.G.valid(retiredPlanUI.saved()));
 console.log('通过：撤回提前安排入口，旧试玩存档读档后恢复手动上课。');
+
+for(const [id,name,expected,gold] of [
+ ['local','本地生',['+20 元','9 折','−10 分钟'],false],
+ ['celebrity','男明星',['100','有时会被人要联系方式'],true],
+ ['researcher','先天科研圣体',['+30%'],false]
+]){
+ const run=G.createCampus(72,['gold-brain','gold-battery','optimist'],'身份详情',id);
+ const identityUI=boot(new Map([['naiwa-dorm-run-v2',JSON.stringify(run)]]));
+ identityUI.document.querySelector('#resume-run').onclick();
+ const before=identityUI.storage.get('naiwa-dorm-run-v2');
+ for(const location of ['sidebar','mobile']){
+  const opener=identityUI.document.querySelectorAll('[data-status-detail]').find(b=>b.dataset.statusDetail==='identity|'+location);
+  assert(opener);
+  assert.equal(identityUI.html().includes('identity-detail-'+location+' rarity-gold'),gold);
+  opener.onclick();
+  assert(identityUI.document.querySelector('#status-details').open);
+  assert.equal(identityUI.document.querySelector('#status-details-title').textContent,name);
+  const values=identityUI.document.querySelector('#status-details-values').innerHTML;
+  assert(expected.every(value=>values.includes(value)));
+  if(id==='celebrity'){assert(!/每天|2～3/.test(values));assert(!/每天|2～3/.test(identityUI.G.identityOf(run).desc));}
+  identityUI.document.querySelector('#status-details-close').onclick();
+  assert(!identityUI.document.querySelector('#status-details').open);
+ }
+ for(const [talentId,location,title,golden] of [['gold-brain','sidebar','学神附体',true],['optimist','mobile','乐天派',false]]){
+  assert(identityUI.html().includes('class="trait-chip'+(golden?' rarity-gold':'')+'" data-status-detail="'+talentId+'|'+location+'"'));
+  identityUI.document.querySelectorAll('[data-status-detail]').find(b=>b.dataset.statusDetail===talentId+'|'+location).onclick();
+  assert.equal(identityUI.document.querySelector('#status-details-title').textContent,title);
+  if(golden)assert(identityUI.document.querySelector('#status-details-summary').textContent.includes('课设＋3'));
+  else assert(identityUI.document.querySelector('#status-details-values').innerHTML.includes('开局心情</dt><dd>+10'));
+  identityUI.document.querySelector('#status-details-close').onclick();
+ }
+ assert.equal(identityUI.storage.get('naiwa-dorm-run-v2'),before);
+}
+console.log('通过：身份与天赋按钮、金色外观标记、桌面和手机详情，以及只读存档。');

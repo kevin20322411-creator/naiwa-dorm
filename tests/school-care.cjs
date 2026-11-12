@@ -64,4 +64,16 @@ const first = G.create(33, ['budget', 'brain', 'athletic'], '课表就诊');
 const lowMood = reach(first, s => s.phase === 'dayEnd' && s.stats.mood < 35, true);
 checkBooking(lowMood, 'psych', s => s.evolution.psychBooked, s => s.evolution.psychDay === s.day && !s.evolution.psychBooked);
 
+const inClass = s => s.phase === 'choice' && s.school.pending && G.getScene(s).category !== 'pe';
+const classChoice = (s, mode) => G.choose(s, G.getScene(s).choices.findIndex(c => c.schoolChoice === mode));
+const scheduled = reach(first, inClass);
+assert.equal(restore(classChoice(scheduled, 'attend')).outcome.changes.energy, -5);
+assert.equal(restore(classChoice(scheduled, 'skip')).outcome.changes.energy, undefined);
+const legacy = G.enableSchool(require('../dist/mini-games.js').create(33, ['budget', 'brain', 'athletic'], '旧课表'));
+const legacyResult = restore(classChoice(reach(legacy, inClass), 'attend'));
+assert.equal(legacyResult.outcome.changes.energy, -2);
+const upgraded = restore(G.enableClassEnergy(legacyResult));
+assert.deepEqual(upgraded.log, legacyResult.log);
+assert.equal(restore(classChoice(reach(upgraded, inClass), 'attend')).outcome.changes.energy, -5);
+
 console.log('School care passed: opt-in and new runs, all three evening bookings, cancellation, confirmation, replay, duplicate prevention, and next-morning care.');

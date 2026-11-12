@@ -122,7 +122,6 @@ button { transition: background .16s, border-color .16s, box-shadow .16s, transf
 .stat-track i { background: #56866a; }
 .status-rule { font-size: 11px; color: var(--ui-muted); line-height: 1.7; margin: 6px 0 16px; }
 .trait-chips { gap: 6px; }
-.trait-chips span { font-size: 11px; color: #536658; background: #f0f3ec; border-radius: 6px; padding: 4px 7px; }
 .status-panel .quit-btn { width: 100%; text-align: left; margin: 12px 0 0; padding: 12px 0 0; border-top: 1px solid var(--ui-line); }
 .game-main { min-width: 0; }
 .satiety-card { border-color: var(--ui-line); border-radius: 14px; background: #eaf0e2; padding: 12px 15px; margin-bottom: 20px; gap: 12px; color: #526249; }

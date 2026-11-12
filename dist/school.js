@@ -89,7 +89,7 @@ function initialize(s,majorId,selection){
 function enableSchool(s,majorId='cs',selection=defaults){
  if(s.school)return s;if(s.version!==6||!s.rhythm||s.phase==='ending')return s;return initialize(s,majorId,selection);
 }
-function create(seed,traits,name,recent,background,majorId='cs',selection=defaults){return enableSchool(B.create(seed,traits,name,recent,background),majorId,selection);}
+function create(seed,traits,name,recent,background,majorId='cs',selection=defaults){return enableClassEnergy(enableSchool(B.create(seed,traits,name,recent,background),majorId,selection));}
 // Upgrade in place at a replayable boundary. Reuse the original replay base rather
 // than nesting a second full save, and never replace an unfinished old lesson.
 function upgradeTimetable(s){
@@ -135,6 +135,10 @@ function enableAttendancePlanRemoval(s){
  }
  return withAction(s,{...s,school},'remove-plan');
 }
+function enableClassEnergy(s){
+ if(s.school?.revision!==3||s.school.classEnergy||s.phase==='ending'||s.majorLife?.pending||s.miniGames?.pending)return s;
+ return withAction(s,{...s,school:{...s.school,classEnergy:5}},'class-energy');
+}
 function schoolView(s){
  if(older(s))return older(s).schoolView(s);if(!s.school)return null;const major=majorOf(s),monday=s.day-((s.day-1)%7),decorate=l=>{const a=s.school.attendance[l.id],status=a?.status||(eligible(s,l)?'upcoming':'passed');return{...l,status,statusLabel:statuses[status],...(a?{checked:a.checked}:{})};};
  const today=lessons(s).map(decorate),days=weekLabels.map((label,i)=>({label,day:monday+i,lessons:lessons(s,monday+i).map(decorate)})),enrolled=new Set([...requiredFor(major.id),...selectedCourses(s.school.selection)].map(c=>c.id));
@@ -171,7 +175,7 @@ function openScheduledCourse(s,l){
  return finishCourse(opened,mode,null,null,planned);
 }
 function courseScene(s){const p=s.school.pending,l=p.lesson,c=courseOf(s,l.courseId),choices=[
- {text:now(s)>=l.end?'本节已经结束，之后可安排补学':now(s)>l.start+10?'现在到场，完成剩下的练习':c.category==='pe'?'按时到场，热身后认真练习':'按时到教室，认真完成课堂练习',mods:c.category==='pe'?{health:3,mood:2,energy:-6}:{study:c.category==='major'?4:c.category==='common'?3:2},flags:{},schoolChoice:'attend',hint:'课堂结束后留下自己的'+c.work+'。',...(now(s)>=l.end?{disabledReason:'本节已结束，请记录未到或说明请假事由后补学'}:{})},
+ {text:now(s)>=l.end?'本节已经结束，之后可安排补学':now(s)>l.start+10?'现在到场，完成剩下的练习':c.category==='pe'?'按时到场，热身后认真练习':'按时到教室，认真完成课堂练习',mods:c.category==='pe'?{health:3,mood:2,energy:-6}:{study:c.category==='major'?4:c.category==='common'?3:2,...(s.school.classEnergy?{energy:-s.school.classEnergy}:{})},flags:{},schoolChoice:'attend',hint:'课堂结束后留下自己的'+c.work+'。',...(now(s)>=l.end?{disabledReason:'本节已结束，请记录未到或说明请假事由后补学'}:{})},
  {text:'这节不去了',mods:{},flags:{},schoolChoice:'skip',hint:'未到课没有学习或课设收益；只有老师点名才记缺勤。'},
  {text:'身体不舒服，先请个假',mods:{},flags:{},schoolChoice:'leave',hint:'请假不记缺勤，之后可在空闲时补学。',...(canLeave(s)?{}:{disabledReason:'当前没有请假事由'})}
  ];
@@ -219,7 +223,7 @@ function finishCourse(s,mode,runnerScore=null,mini=null,autoPlan=null){
  const attending=mode==='attend',sport=attending&&c.category==='pe',signed=attending&&(!late||!checked),quiz=attending&&!sport&&!late&&p.notice==='quiz';
  const study=attending&&!sport?(late?1:c.category==='major'?4:c.category==='common'?3:2)+(quiz?2:0):0,project=attending&&!sport?(late?1:c.category==='major'?4:c.category==='common'?2:1):0;
  const exercise=sport?physical(s,c,late,mini):null,flags=attending?{schoolAttend:1,...(exercise?.flags||{}),...(c.category==='elective'&&['photo','film','music','calligraphy'].includes(c.kind)?{art:1}:{})}:{};
- const stats=exercise?.stats||B.apply(s.stats,attending?{study,energy:-2,...(c.category==='elective'&&s.stats.mood<80?{mood:1}:{})}:invite?{energy:-2,mood:4,social:2}:{});
+ const stats=exercise?.stats||B.apply(s.stats,attending?{study,energy:-(s.school.classEnergy??2),...(c.category==='elective'&&s.stats.mood<80?{mood:1}:{})}:invite?{energy:-2,mood:4,social:2}:{});
  if(attending){if(late){r.late++;if(checked){r.missed++;r.risk++;r.score=Math.max(0,r.score-3);}}else{r.attended++;r.score=Math.min(100,r.score+1);}}else if(mode==='leave'){r.excused++;r.makeup++;}else{r.makeup++;if(missed){r.missed++;r.risk+=2;r.score=Math.max(0,r.score-8);}}
  const work=attending?{title:c.work,course:c.name,courseId:c.id,kind:c.kind,category:c.category,categoryLabel:c.categoryLabel,caption:late?'补听或补练后留下的一份简短记录。':sport?'热身、练习、放松，把自己的训练记下来。':'奶蛙在课堂上动手完成，留下今天的一小步。',day:s.day,seed:hash(s.seed+':work:'+l.id),late}:null;
  let result=attending?(exercise?.result||(late?'迟到后听完了剩余内容，完成了一份简短练习。':'奶蛙按时到课，认真完成了'+c.work+'。'))+(late?(checked?' 本节有签到，迟到错过了签到；可以之后补学并向老师说明。':' 本节未抽查签到，迟到仍如实记下。'):''):mode==='leave'?'已经向老师说明身体情况，本节记为请假，待恢复后补学。':checked?'本节老师抽查了出勤，点名未到，记一次缺勤。没有获得课堂收益。':'奶蛙没有到课；本节未抽查出勤，不记缺勤，也没有获得课堂收益。';
@@ -291,9 +295,9 @@ function continueDay(s){if(!s.school)return B.continueDay(s);let n=B.continueDay
 function retire(s){return s.school?withAction(s,B.retire(s),'retire'):B.retire(s);}
 const upgrades=Object.keys(B).filter(k=>k.startsWith('enable')&&typeof B[k]==='function'),wrapped={};for(const key of upgrades)wrapped[key]=(s,...args)=>{const n=B[key](s,...args);return s.school&&n!==s?withAction(s,n,'upgrade',[key,...args]):n;};
 function replayAction(engine,s,a){
- const match=/^school-(choose|next|start|mini|cancel|day|retire|upgrade|select|plan|remove-plan):(.+)$/.exec(a);if(!match)throw Error('Invalid action');
+ const match=/^school-(choose|next|start|mini|cancel|day|retire|upgrade|select|plan|remove-plan|class-energy):(.+)$/.exec(a);if(!match)throw Error('Invalid action');
  const args=JSON.parse(decodeURIComponent(match[2]));if(!Array.isArray(args))throw Error('Invalid arguments');
- const method={choose:'choose',next:'next',start:'startActivity',mini:'completeMini',cancel:'cancelMini',day:'continueDay',retire:'retire',select:'selectCourses',plan:'planCourseAttendance','remove-plan':'enableAttendancePlanRemoval'}[match[1]];
+ const method={choose:'choose',next:'next',start:'startActivity',mini:'completeMini',cancel:'cancelMini',day:'continueDay',retire:'retire',select:'selectCourses',plan:'planCourseAttendance','remove-plan':'enableAttendancePlanRemoval','class-energy':'enableClassEnergy'}[match[1]];
  if(method)return engine[method](s,...args);if(!upgrades.includes(args[0]))throw Error('Invalid upgrade');return engine[args[0]](s,...args.slice(1));
 }
 function restore(raw){
@@ -302,7 +306,7 @@ function restore(raw){
  const base=raw.school.base?.school?V.restore(raw.school.base):B.restore(raw.school.base);if(!base)return null;const boundary=base.actions.length,marker=raw.actions[boundary];
  if(typeof marker!=='string'||!/^curriculum-v[23]:/.test(marker)||JSON.stringify(raw.actions.slice(0,boundary))!==JSON.stringify(base.actions))return null;
  const [majorId,selection]=JSON.parse(decodeURIComponent(marker.slice(14)));if(base.school&&base.school.majorId!==majorId)return null;
- const current={...wrapped,choose,next,startActivity,completeMini,cancelMini,continueDay,retire,selectCourses,planCourseAttendance,enableAttendancePlanRemoval};
+ const current={...wrapped,choose,next,startActivity,completeMini,cancelMini,continueDay,retire,selectCourses,planCourseAttendance,enableAttendancePlanRemoval,enableClassEnergy};
  let engine=marker.startsWith('curriculum-v2:')?V2:current,s=engine===V2?(base.school?V2.selectCourses(base,selection):V2.enableSchool(base,majorId,selection)):initialize(base,majorId,selection);
  for(const a of raw.actions.slice(boundary+1)){if(a==='timetable-v3:[]'){if(s.school.revision!==2)return null;s=upgradeTimetable(s);if(s.school.revision!==3)return null;engine=current;}else s=replayAction(engine,s,a);}
  return JSON.stringify(s)===JSON.stringify(raw)?s:null;
@@ -310,5 +314,5 @@ function restore(raw){
 }
 const methods={getScene,choose,next,freeMinutes,availableActivities,startActivity,completeMini,cancelMini,continueDay,retire},dispatch={};for(const [key,fn]of Object.entries(methods))dispatch[key]=(s,...args)=>older(s)?older(s)[key](s,...args):fn(s,...args);
 for(const key of upgrades){const fn=wrapped[key];wrapped[key]=(s,...args)=>older(s)?older(s)[key](s,...args):fn(s,...args);}
-root.DormGame={...B,...wrapped,...dispatch,majors,courseCatalog,schoolPeriods,upgradeTimetable,create,enableSchool,schoolView,curriculumOptions,validateCourseSelection,selectCourses,planCourseAttendance,enableAttendancePlanRemoval,restore,valid:s=>restore(s)!==null};if(!browser)module.exports=root.DormGame;
+root.DormGame={...B,...wrapped,...dispatch,majors,courseCatalog,schoolPeriods,upgradeTimetable,create,enableSchool,schoolView,curriculumOptions,validateCourseSelection,selectCourses,planCourseAttendance,enableAttendancePlanRemoval,enableClassEnergy,restore,valid:s=>restore(s)!==null};if(!browser)module.exports=root.DormGame;
 })(typeof globalThis!=='undefined'?globalThis:this);

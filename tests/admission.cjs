@@ -56,10 +56,61 @@ function checkFanBook(){
   separate=separate.phase==='choice'&&separate.eventId==='love-encounter'?G.choose(separate,0):step(separate);
  }
  assert(separate.outcome?.contactAdded);
- assert.equal(separate.admission.partnerId,null);
+ assert.equal(separate.admission.partnerId,separate.outcome.fanContactId);
  assert.equal(separate.admission.contacts.find(c=>c.id===first.id).romance.connected,false);
  assert(G.valid(separate));
  console.log('Fan book passed: inactive promise expiry, forecast agreement, legacy replay, and distinct reconnection.');
+}
+function meetAndAdd(s){
+ for(let i=0;i<350&&s.phase!=='ending';i++){
+  if(s.phase==='choice'&&G.getScene(s).id==='love-encounter'){
+   const name=G.meetingName(s),result=G.choose(s,0);
+   if(result.outcome?.contactAdded)return{before:s,result,name};
+   s=result;
+  }else s=step(s);
+ }
+ throw Error('未能通过校园偶遇添加联系人');
+}
+function checkCampusContacts(){
+ const start=create('celebrity',undefined,72),invite=start.admission.contacts[0];
+ const {result,name}=meetAndAdd(start);
+ assert(result.day>invite.day);
+ assert.equal(result.outcome.fanName,name);
+ const original=result.admission.contacts.find(c=>c.id===result.admission.partnerId);
+ assert.equal(G.fanIdentity(original).name,name);
+ assert.equal(result.admission.contacts.find(c=>c.id===invite.id).status,'offered');
+ const withInvite=G.respondFan(until(result,G.canManageFans),invite.id,true);
+ assert.equal(withInvite.admission.partnerId,original.id);
+ assert.equal(withInvite.admission.contacts.find(c=>c.id===invite.id).status,'known');
+ assert(G.valid(withInvite));
+
+ const first=meetAndAdd(create('blogger',undefined,68));
+ const second=meetAndAdd(G.next(first.result));
+ assert(second.before.romance.connected);
+ assert.notEqual(first.name,second.name);
+ assert.equal(second.result.admission.contacts.length,2);
+ assert.equal(second.result.admission.partnerId,first.result.admission.partnerId);
+ assert.deepEqual(second.result.romance,second.before.romance);
+ assert.deepEqual(second.result.relationships,second.before.relationships);
+ const newId=second.result.outcome.fanContactId;
+ const focused=G.focusContact(until(second.result,G.canManageFans),newId);
+ assert.equal(focused.romance.intimacy,20);
+ assert.deepEqual(focused.relationships.known,[]);
+ assert.deepEqual(G.restore(clone(focused)),focused);
+
+ const familiar=G.choose(first.before,1);
+ assert.equal(familiar.admission.metContact.name,first.name);
+ assert(!familiar.romance.connected);
+ const reunion=until(G.next(familiar),s=>s.phase==='choice'&&G.getScene(s).id==='love-encounter');
+ assert.equal(G.meetingName(reunion),first.name);
+ assert(G.valid(reunion));
+
+ const oldStart=G.create(68,['brain','regularSleep','slowWarm'],'旧链接');
+ const migrated=G.enableFanBook(oldStart,3);
+ assert.deepEqual(migrated.stats,oldStart.stats);
+ assert.equal(G.identityOf(migrated),undefined);
+ assert(G.valid(meetAndAdd(migrated).result));
+ console.log('Campus contacts passed: stable names, recurring encounters, distinct relationships, preserved invitations and older saves.');
 }
 function checkRetiredAttendancePlan(){
  const legacy=require('../dist/admission');
@@ -98,10 +149,11 @@ function checkRetiredAttendancePlan(){
 }
 function checks(){
  checkFanBook();
+ checkCampusContacts();
  checkRetiredAttendancePlan();
- assert.equal(G.identities.length,10);assert.equal(G.goldenTraits.length,5);assert.equal(G.labels.money,'生活费');
+ assert.equal(G.identities.length,11);assert.equal(G.goldenTraits.length,5);assert.equal(G.labels.money,'生活费');
  const count=new Map(G.identities.map(x=>[x.id,0]));for(let seed=0;seed<20000;seed++){const batch=G.identityDraft(seed);assert.equal(batch.length,3);assert.equal(new Set(batch).size,3);for(const id of batch)count.set(id,count.get(id)+1);}
- for(const i of G.identities){const rate=count.get(i.id)/60000;assert(Math.abs(rate-(i.gold?.05:.85/7))<.007,i.id+' '+rate);}
+ for(const i of G.identities){const rate=count.get(i.id)/60000;assert(Math.abs(rate-(i.gold?.05:.85/8))<.007,i.id+' '+rate);}
  for(let seed=0;seed<400;seed++){const first=G.talentDraft(seed),second=G.talentDraft(seed+1,first.slice(0,2),first);assert.equal(first.length,6);assert.equal(second.length,6);assert.equal(new Set(first.map(G.identityFamily)).size,6);assert(second.every(id=>!first.slice(0,2).map(G.identityFamily).includes(G.identityFamily(id))));}
  for(const id of G.identities.map(x=>x.id)){const s=create(id),before=clone(s);assert(G.valid(s));assert.deepEqual(G.restore(clone(s)),s);assert.deepEqual(s,before);assert(s.stats.money>150);}
  const neutral=['chosen','flirt','optimist'],base=B.create(2,neutral,'x',[],'freshman','cs'),fresh=G.createCampus(2,neutral,'x','rich');assert.equal(fresh.stats.money-base.stats.money,1260);
@@ -126,7 +178,7 @@ function checks(){
  const lover=G.choose(G.createCampus(72,['gold-flirt','chosen','optimist'],'相处','classmate'),0),talk=G.startActivity(lover,'bond-talk'),affection=G.getScene(talk).choices[0].affection,spoken=G.choose(talk,0);assert.equal(spoken.outcome.intimacyChange,affection+3);assert(G.valid(spoken));
  const highBalance={...tutorBefore,stats:{...tutorBefore.stats,money:1000000}};const highPaid=G.choose(G.startActivity(highBalance,'work-tutor'),0);assert.equal(highPaid.stats.money,1000160,'生活费在百万余额上仍可继续增加');
  assert.deepEqual(G.restore(base),B.restore(base));assert.deepEqual(G.restore(require('./fixtures/v6-evolution.json')),B.restore(require('./fixtures/v6-evolution.json')));
- console.log('Admission passed: weighted unique draws, five gold talents, ten identities, real buffs/jobs/fans/discounts, double hunger, locked mood, weekly preview, and strict replay.');
+ console.log('Admission passed: weighted unique draws, five gold talents, eleven identities, real buffs/jobs/fans/discounts, double hunger, locked mood, weekly preview, and strict replay.');
  return{tutor:tutorBefore,week,liang};
 }
-if(require.main===module)checks();module.exports={checks,create,pick,step,until};
+if(require.main===module)checks();module.exports={checks,create,pick,step,until,meetAndAdd};

@@ -19,7 +19,7 @@ function researchStatus(s){
  const joinedDay=s.log[joinedAt].day;
  const visits=s.log.slice(joinedAt+1).filter(completedLab);
  // Older records lack the stats at the time of each visit, so they earn a baseline.
- const total=visits.reduce((sum,row)=>sum+(row.researchGain??7),0);
+ const total=visits.reduce((tenths,row)=>tenths+Math.round((row.researchGain??7)*10),0)/10;
  const days=Math.max(0,s.day-joinedDay),progress=Math.min(researchTarget.progress,total);
  return{joinedDay,days,visits:visits.length,progress,target:researchTarget,ready:days>=researchTarget.days&&visits.length>=researchTarget.visits&&progress>=researchTarget.progress};
 }

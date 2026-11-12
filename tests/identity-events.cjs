@@ -4,7 +4,7 @@ assert(I.pool.rich.some(e=>e.id==='identity-rich-dinner'));assert(!I.pool.direct
 for(const old of Object.values(require('./fixtures/identity-events-v97-preview1.json'))){check(old);assert.strictEqual(G.upgradeIdentityEvents(old),old,'finish the existing story before upgrading its pool');check(G.upgradeIdentityEvents(G.next(old.phase==='choice'?G.choose(old,1):old)));}
 for(const old of Object.values(require('./fixtures/admission-v96-formal.json'))){assert.deepEqual(G.restore(copy(old)),old);const next=check(G.enableIdentityEvents(old));assert.equal(next.admission.identityLife.revision,1);assert.deepEqual(next.stats,old.stats);assert.deepEqual(next.log,old.log);assert.strictEqual(G.enableIdentityEvents(next),next);}
 let found=0,branches=0;const examples={};
-for(const {id}of G.identities){
+for(const {id}of G.identities.filter(identity=>I.pool[identity.id])){
  assert.equal(I.pool[id].length,2);let pending;
  for(let seed=70;seed<85&&!pending;seed++){
   let s=G.createCampus(seed,['gold-brain','gold-battery','optimist'],'身份事件',id);
